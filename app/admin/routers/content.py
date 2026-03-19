@@ -2,7 +2,7 @@ import json
 import re
 from urllib.parse import quote_plus
 
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,12 +23,11 @@ from app.db.models.media_asset import MediaAsset
 
 router = APIRouter(prefix="/admin/content", tags=["admin-content"])
 
-FIXED_LINK_KEYS = [
+PREFERRED_LINK_ORDER = [
     "channel",
     "registration",
     "deposit",
     "instruction",
-    "instruction_message",
     "bonus",
     "signal",
     "webapp",
@@ -39,6 +38,11 @@ def _sanitize_slug(value: str) -> str:
     cleaned = re.sub(r"[^a-z0-9_]+", "_", value.strip().lower())
     cleaned = re.sub(r"_+", "_", cleaned).strip("_")
     return cleaned
+
+
+def _sanitize_link_key(value: str) -> str:
+    cleaned = re.sub(r"[^a-z0-9_]+", "_", value.strip().lower())
+    return cleaned.strip("_")
 
 
 def _buttons_to_json(step: DynamicFunnelStep) -> str:
@@ -132,7 +136,13 @@ async def content_page(
         await session.execute(select(MediaAsset).order_by(MediaAsset.created_at.desc(), MediaAsset.id.desc()))
     ).scalars().all()
 
-    extra_links = {k: v for k, v in links.items() if k not in FIXED_LINK_KEYS}
+    instruction_message = links.get("instruction_message", "")
+    links_without_instruction = {k: v for k, v in links.items() if k != "instruction_message"}
+    ordered_keys = [
+        *[key for key in PREFERRED_LINK_ORDER if key in links_without_instruction],
+        *sorted(key for key in links_without_instruction if key not in PREFERRED_LINK_ORDER),
+    ]
+    link_items = [{"key": key, "value": links_without_instruction.get(key, "")} for key in ordered_keys]
     steps_view = [
         {
             "step": step,
@@ -148,8 +158,9 @@ async def content_page(
         "content.html",
         {
             "request": request,
-            "links": links,
-            "extra_links_json": json.dumps(extra_links, ensure_ascii=False, indent=2),
+            "instruction_message": instruction_message,
+            "link_items": link_items,
+            "link_keys": [item["key"] for item in link_items],
             "steps_view": steps_view,
             "step_targets": [{"step": s.step, "title": s.title, "slug": s.slug} for s in steps],
             "media_assets": assets,
@@ -164,49 +175,41 @@ async def content_page(
 
 @router.post("/links")
 async def update_links(
+    request: Request,
     _: str = Depends(require_admin),
     session: AsyncSession = Depends(db_session),
-    channel: str = Form(""),
-    registration: str = Form(""),
-    deposit: str = Form(""),
-    instruction: str = Form(""),
-    instruction_message: str = Form(""),
-    bonus: str = Form(""),
-    signal: str = Form(""),
-    webapp: str = Form(""),
-    extra_links_json: str = Form("{}"),
 ):
-    links = {
-        "channel": channel.strip(),
-        "registration": registration.strip(),
-        "deposit": deposit.strip(),
-        "instruction": instruction.strip(),
-        "instruction_message": instruction_message.strip(),
-        "bonus": bonus.strip(),
-        "signal": signal.strip(),
-        "webapp": webapp.strip(),
-    }
+    form = await request.form()
+    instruction_message = str(form.get("instruction_message", "")).strip()
+    keys = form.getlist("link_key")
+    values = form.getlist("link_value")
 
-    if extra_links_json.strip():
-        try:
-            extra = json.loads(extra_links_json)
-        except json.JSONDecodeError as exc:
+    max_len = max(len(keys), len(values)) if (keys or values) else 0
+    links: dict[str, str] = {}
+
+    for idx in range(max_len):
+        raw_key = keys[idx] if idx < len(keys) else ""
+        raw_value = values[idx] if idx < len(values) else ""
+
+        key = _sanitize_link_key(str(raw_key))
+        value = str(raw_value).strip()
+
+        if not key and not value:
+            continue
+        if not key:
             return RedirectResponse(
-                url=f"/admin/content?error={quote_plus(f'Ошибка JSON ссылок: {exc}')}",
+                url=f"/admin/content?error={quote_plus(f'Ссылка #{idx + 1}: пустой ключ')}",
+                status_code=302,
+            )
+        if key in links:
+            return RedirectResponse(
+                url=f"/admin/content?error={quote_plus(f'Дублирующийся ключ ссылки: {key}')}",
                 status_code=302,
             )
 
-        if not isinstance(extra, dict):
-            return RedirectResponse(
-                url=f"/admin/content?error={quote_plus('extra_links_json должен быть объектом')}",
-                status_code=302,
-            )
+        links[key] = value
 
-        for key, value in extra.items():
-            k = str(key).strip()
-            if not k:
-                continue
-            links[k] = str(value).strip()
+    links["instruction_message"] = instruction_message
 
     await save_links_config(session, links)
     await session.commit()

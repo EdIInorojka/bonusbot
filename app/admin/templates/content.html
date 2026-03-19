@@ -8,34 +8,28 @@
 
 <section class="card">
   <h2>Ссылки и канал проверки</h2>
-  <form method="post" action="/admin/content/links" class="grid form-grid">
-    <label>Канал для проверки подписки (`channel`)
-      <input type="text" name="channel" value="{{ links.get('channel','') }}" required>
+  <form method="post" action="/admin/content/links" class="step-form" id="links-form">
+    <p class="muted">Управляй ключами ссылок: добавляй, удаляй и редактируй. Эти ключи можно использовать в `btn_value` для кнопок `url` и `webapp`.</p>
+    <div class="link-builder">
+      <div class="btn-builder-head">
+        <strong>Список ссылок</strong>
+        <button type="button" class="add-link-row">+ Ссылка</button>
+      </div>
+      <div class="link-rows">
+        {% for item in link_items %}
+        <div class="link-row">
+          <input type="text" name="link_key" value="{{ item.key }}" placeholder="key (например, registration)" required>
+          <input type="text" name="link_value" value="{{ item.value }}" placeholder="URL или t.me/...">
+          <button type="button" class="danger remove-link-row">x</button>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <label>Текст инструкции (`instruction_message`, HTML)
+      <textarea name="instruction_message" rows="5">{{ instruction_message }}</textarea>
     </label>
-    <label>Ссылка регистрации (`registration`)
-      <input type="text" name="registration" value="{{ links.get('registration','') }}">
-    </label>
-    <label>Ссылка депозита (`deposit`)
-      <input type="text" name="deposit" value="{{ links.get('deposit','') }}">
-    </label>
-    <label>Ссылка инструкции (`instruction`)
-      <input type="text" name="instruction" value="{{ links.get('instruction','') }}">
-    </label>
-    <label style="grid-column: 1 / -1;">Текст инструкции (`instruction_message`, HTML)
-      <textarea name="instruction_message" rows="5">{{ links.get('instruction_message','') }}</textarea>
-    </label>
-    <label>Ссылка бонуса (`bonus`)
-      <input type="text" name="bonus" value="{{ links.get('bonus','') }}">
-    </label>
-    <label>Ссылка сигнала (`signal`)
-      <input type="text" name="signal" value="{{ links.get('signal','') }}">
-    </label>
-    <label>Ссылка WebApp (`webapp`)
-      <input type="text" name="webapp" value="{{ links.get('webapp','') }}">
-    </label>
-    <label style="grid-column: 1 / -1;">Доп. алиасы ссылок (JSON объект)
-      <textarea name="extra_links_json" rows="6">{{ extra_links_json }}</textarea>
-    </label>
+
     <button type="submit">Сохранить ссылки</button>
   </form>
 </section>
@@ -105,8 +99,9 @@
               {% endfor %}
             </select>
             <input type="text" name="btn_value" class="btn-value" value="{{ btn.value }}" placeholder="Value / URL">
+            <select class="btn-link-key" data-current="{{ btn.value }}"></select>
             <select class="btn-target" data-current="{{ btn.value }}"></select>
-            <button type="button" class="danger remove-btn-row">×</button>
+            <button type="button" class="danger remove-btn-row">x</button>
           </div>
           {% endfor %}
         </div>
@@ -172,6 +167,19 @@
 
 <script>
   const STEP_TARGETS = {{ step_targets|tojson|safe }};
+  let LINK_KEYS = {{ link_keys|tojson|safe }};
+
+  function uniq(values) {
+    return [...new Set(values)];
+  }
+
+  function collectLinkKeys() {
+    return uniq(
+      Array.from(document.querySelectorAll('.link-row input[name="link_key"]'))
+        .map((el) => el.value.trim().toLowerCase().replace(/[^a-z0-9_]+/g, '_').replace(/^_+|_+$/g, ''))
+        .filter(Boolean)
+    );
+  }
 
   function createTargetOptions(select, currentValue = "") {
     select.innerHTML = '<option value="">redirect target</option>';
@@ -180,32 +188,81 @@
       opt.value = String(t.step);
       const slug = t.slug ? ` [${t.slug}]` : '';
       opt.textContent = `#${t.step} ${t.title}${slug}`;
-      if (String(t.step) === String(currentValue)) opt.selected = true;
+      if (String(t.step) === String(currentValue)) {
+        opt.selected = true;
+      }
       select.appendChild(opt);
+    });
+  }
+
+  function createLinkOptions(select, currentValue = "") {
+    if (!select) return;
+    select.innerHTML = '<option value="">link alias</option>';
+    LINK_KEYS.forEach((key) => {
+      const opt = document.createElement('option');
+      opt.value = key;
+      opt.textContent = key;
+      if (String(key) === String(currentValue)) {
+        opt.selected = true;
+      }
+      select.appendChild(opt);
+    });
+  }
+
+  function refreshButtonLinkKeyOptions() {
+    document.querySelectorAll('.btn-row').forEach((row) => {
+      const action = row.querySelector('.btn-action');
+      const valueInput = row.querySelector('.btn-value');
+      const linkSelect = row.querySelector('.btn-link-key');
+      if (!linkSelect || !action || !valueInput) return;
+      createLinkOptions(linkSelect, valueInput.value || '');
+      const isLinkAction = action.value === 'url' || action.value === 'webapp';
+      linkSelect.style.display = isLinkAction ? 'block' : 'none';
     });
   }
 
   function bindButtonRow(row) {
     const action = row.querySelector('.btn-action');
     const valueInput = row.querySelector('.btn-value');
+    const linkSelect = row.querySelector('.btn-link-key');
     const targetSelect = row.querySelector('.btn-target');
     const removeBtn = row.querySelector('.remove-btn-row');
 
     createTargetOptions(targetSelect, targetSelect.dataset.current || valueInput.value || '');
+    createLinkOptions(linkSelect, linkSelect.dataset.current || valueInput.value || '');
 
     const sync = () => {
       const isNext = action.value === 'next';
+      const isLinkAction = action.value === 'url' || action.value === 'webapp';
+
       targetSelect.style.display = isNext ? 'block' : 'none';
+      linkSelect.style.display = isLinkAction ? 'block' : 'none';
       valueInput.readOnly = isNext;
-      valueInput.placeholder = isNext ? 'Choose target from list' : 'Value / URL';
+      valueInput.placeholder = isNext ? 'Choose target from list' : (isLinkAction ? 'Alias key or direct URL' : 'Value / URL');
+
       if (isNext && targetSelect.value) {
         valueInput.value = targetSelect.value;
+      }
+
+      if (isLinkAction) {
+        createLinkOptions(linkSelect, valueInput.value || '');
       }
     };
 
     action.addEventListener('change', sync);
     targetSelect.addEventListener('change', () => {
       valueInput.value = targetSelect.value;
+    });
+    linkSelect.addEventListener('change', () => {
+      if (linkSelect.value) {
+        valueInput.value = linkSelect.value;
+      }
+    });
+    valueInput.addEventListener('input', () => {
+      const isLinkAction = action.value === 'url' || action.value === 'webapp';
+      if (isLinkAction) {
+        createLinkOptions(linkSelect, valueInput.value || '');
+      }
     });
 
     removeBtn.addEventListener('click', () => {
@@ -230,8 +287,9 @@
         {% endfor %}
       </select>
       <input type="text" name="btn_value" class="btn-value" placeholder="Value / URL">
+      <select class="btn-link-key"></select>
       <select class="btn-target"></select>
-      <button type="button" class="danger remove-btn-row">×</button>
+      <button type="button" class="danger remove-btn-row">x</button>
     `;
     bindButtonRow(row);
     return row;
@@ -252,6 +310,73 @@
         rows.appendChild(buildEmptyRow());
       });
     });
+  }
+
+  function buildLinkRow(key = '', value = '') {
+    const row = document.createElement('div');
+    row.className = 'link-row';
+    row.innerHTML = `
+      <input type="text" name="link_key" value="${key}" placeholder="key (e.g. registration)" required>
+      <input type="text" name="link_value" value="${value}" placeholder="URL or t.me/...">
+      <button type="button" class="danger remove-link-row">x</button>
+    `;
+
+    const keyInput = row.querySelector('input[name="link_key"]');
+    const removeBtn = row.querySelector('.remove-link-row');
+
+    keyInput.addEventListener('input', () => {
+      LINK_KEYS = collectLinkKeys();
+      refreshButtonLinkKeyOptions();
+    });
+
+    removeBtn.addEventListener('click', () => {
+      const rows = row.closest('.link-rows');
+      row.remove();
+      if (rows && rows.children.length === 0) {
+        rows.appendChild(buildLinkRow());
+      }
+      LINK_KEYS = collectLinkKeys();
+      refreshButtonLinkKeyOptions();
+    });
+
+    return row;
+  }
+
+  function initLinkBuilder() {
+    const form = document.getElementById('links-form');
+    if (!form) return;
+
+    const rows = form.querySelector('.link-rows');
+    const addBtn = form.querySelector('.add-link-row');
+
+    rows.querySelectorAll('.link-row').forEach((row) => {
+      const keyInput = row.querySelector('input[name="link_key"]');
+      const removeBtn = row.querySelector('.remove-link-row');
+
+      keyInput.addEventListener('input', () => {
+        LINK_KEYS = collectLinkKeys();
+        refreshButtonLinkKeyOptions();
+      });
+
+      removeBtn.addEventListener('click', () => {
+        row.remove();
+        if (rows.children.length === 0) {
+          rows.appendChild(buildLinkRow());
+        }
+        LINK_KEYS = collectLinkKeys();
+        refreshButtonLinkKeyOptions();
+      });
+    });
+
+    if (rows.children.length === 0) {
+      rows.appendChild(buildLinkRow());
+    }
+
+    addBtn.addEventListener('click', () => {
+      rows.appendChild(buildLinkRow());
+    });
+
+    LINK_KEYS = collectLinkKeys();
   }
 
   function updatePreviewByValue(value, previewId, fallbackInput) {
@@ -299,7 +424,9 @@
     });
   }
 
+  initLinkBuilder();
   initBuilders();
+  refreshButtonLinkKeyOptions();
   initMediaPickers();
 </script>
 {% endblock %}
