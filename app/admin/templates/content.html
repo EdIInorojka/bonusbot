@@ -43,6 +43,7 @@
 <section class="card">
   <h2>Шаги воронки</h2>
   <p class="muted">`photo` можно задать как Telegram `file_id` или публичный URL изображения.</p>
+  <p class="muted"><a href="/admin/media" target="_blank">Открыть медиатеку</a> и скопировать `file_id`/URL.</p>
   <p class="muted">`text` поддерживает HTML-разметку Telegram на всех шагах, включая главное меню.</p>
 
   {% for item in steps_view %}
@@ -62,6 +63,7 @@
       <label>Фото (`file_id` или URL)
         <input type="text" name="photo" value="{{ step.photo }}">
       </label>
+      <p class="muted"><a href="/admin/media" target="_blank">Взять из медиатеки</a></p>
       <label>Кнопки JSON
         <textarea name="buttons_json" rows="8" required>{{ item.buttons_json }}</textarea>
       </label>
@@ -86,6 +88,7 @@
     <label>Фото (`file_id` или URL)
       <input type="text" name="photo" value="">
     </label>
+    <p class="muted"><a href="/admin/media" target="_blank">Взять из медиатеки</a></p>
     <label>Кнопки JSON
       <textarea name="buttons_json" rows="8" required>[{"text": "Кнопка", "action": "url", "value": "https://example.com"}]</textarea>
     </label>

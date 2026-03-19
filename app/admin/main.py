@@ -15,7 +15,7 @@ from sqlalchemy import select
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.staticfiles import StaticFiles
 
-from app.admin.routers import auth, content, dashboard, exports, prizes, settings, users
+from app.admin.routers import auth, content, dashboard, exports, media, prizes, settings, users
 from app.bot.handlers import router as bot_router
 from app.bot.services.spins import SpinService, serialize_spin_result
 from app.core.config import build_telegram_webhook_url, get_settings
@@ -69,6 +69,7 @@ def create_app() -> FastAPI:
     app.include_router(prizes.router)
     app.include_router(settings.router)
     app.include_router(content.router)
+    app.include_router(media.router)
     app.include_router(users.router)
     app.include_router(exports.router)
 

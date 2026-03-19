@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}Media{% endblock %}
+{% block content %}
+<h1>Медиатека</h1>
+
+{% if msg %}<div class="notice ok">{{ msg }}</div>{% endif %}
+{% if error %}<div class="notice err">{{ error }}</div>{% endif %}
+
+<section class="card">
+  <h2>Загрузить изображение</h2>
+  <form method="post" action="/admin/media/upload" enctype="multipart/form-data" class="grid form-grid">
+    <label>Название
+      <input type="text" name="label" placeholder="Например: step7 main banner">
+    </label>
+    <label>Файл
+      <input type="file" name="image" accept="image/*" required>
+    </label>
+    <button type="submit">Загрузить и сохранить file_id</button>
+  </form>
+  <p class="muted">Файл загружается в Telegram и сохраняется как `file_id` для поля `photo` в шагах.</p>
+</section>
+
+<section class="card">
+  <h2>Добавить URL</h2>
+  <form method="post" action="/admin/media/add-url" class="grid form-grid">
+    <label>Название
+      <input type="text" name="label" placeholder="Например: promo image CDN">
+    </label>
+    <label>Прямая ссылка на изображение
+      <input type="text" name="url" placeholder="https://..." required>
+    </label>
+    <button type="submit">Добавить URL</button>
+  </form>
+</section>
+
+<section class="card">
+  <h2>Добавить вручную file_id</h2>
+  <form method="post" action="/admin/media/add-file-id" class="grid form-grid">
+    <label>Название
+      <input type="text" name="label" placeholder="Например: hero-english">
+    </label>
+    <label>Telegram file_id
+      <input type="text" name="file_id" placeholder="AgACAg..." required>
+    </label>
+    <button type="submit">Добавить file_id</button>
+  </form>
+</section>
+
+<section class="card">
+  <h2>Сохранённые картинки</h2>
+  <p class="muted">Нажми `Copy`, затем вставь в поле `photo` нужного шага в <a href="/admin/content">контенте</a>.</p>
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Название</th>
+        <th>Тип</th>
+        <th>Значение</th>
+        <th>Действия</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in assets %}
+      <tr>
+        <td>{{ item.id }}</td>
+        <td>{{ item.label }}</td>
+        <td>{{ item.asset_type.value }}</td>
+        <td><code class="asset-code" id="asset-{{ item.id }}">{{ item.value }}</code></td>
+        <td class="actions">
+          <button type="button" onclick="copyAsset('asset-{{ item.id }}')">Copy</button>
+          <form method="post" action="/admin/media/{{ item.id }}/delete">
+            <button type="submit" class="danger">Удалить</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5">Пока пусто.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<script>
+  async function copyAsset(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const text = el.textContent || "";
+    try {
+      await navigator.clipboard.writeText(text);
+      alert("Скопировано");
+    } catch (_) {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+      alert("Скопировано");
+    }
+  }
+</script>
+{% endblock %}

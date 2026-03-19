@@ -196,7 +196,16 @@ textarea {
   border: 1px solid #6d1d2e;
   background: #35101a;
 }
+.asset-code {
+  display: inline-block;
+  max-width: 520px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+}
 @media (max-width: 768px) {
   .wrap { padding: 14px; }
   th, td { font-size: 12px; }
+  .asset-code { max-width: 180px; }
 }
