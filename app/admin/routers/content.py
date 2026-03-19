@@ -19,7 +19,7 @@ from app.bot.services.content import (
 
 router = APIRouter(prefix="/admin/content", tags=["admin-content"])
 
-FIXED_LINK_KEYS = ["channel", "registration", "deposit", "instruction", "bonus", "signal", "webapp"]
+FIXED_LINK_KEYS = ["channel", "registration", "deposit", "instruction", "instruction_message", "bonus", "signal", "webapp"]
 
 
 def _buttons_to_json(step: DynamicFunnelStep) -> str:
@@ -94,6 +94,7 @@ async def update_links(
     registration: str = Form(""),
     deposit: str = Form(""),
     instruction: str = Form(""),
+    instruction_message: str = Form(""),
     bonus: str = Form(""),
     signal: str = Form(""),
     webapp: str = Form(""),
@@ -104,6 +105,7 @@ async def update_links(
         "registration": registration.strip(),
         "deposit": deposit.strip(),
         "instruction": instruction.strip(),
+        "instruction_message": instruction_message.strip(),
         "bonus": bonus.strip(),
         "signal": signal.strip(),
         "webapp": webapp.strip(),

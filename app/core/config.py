@@ -42,6 +42,10 @@ class Settings(BaseSettings):
     registration_url: str = Field(default="https://example.com/register", alias="REGISTRATION_URL")
     deposit_url: str = Field(default="https://example.com/deposit", alias="DEPOSIT_URL")
     instruction_url: str = Field(default="https://example.com/instruction", alias="INSTRUCTION_URL")
+    instruction_message: str = Field(
+        default="📘 <b>How to use the bot</b>\n\n1) Register using our link.\n2) Complete your first deposit.\n3) Follow funnel steps and claim bonuses.",
+        alias="INSTRUCTION_MESSAGE",
+    )
     bonus_claim_url: str = Field(default="https://example.com/bonus", alias="BONUS_CLAIM_URL")
     signal_url: str = Field(default="https://example.com/luckyjet-signal", alias="SIGNAL_URL")
 

@@ -8,6 +8,7 @@ DEFAULT_LINKS: dict[str, str] = {
     "registration": "https://example.com/register",
     "deposit": "https://example.com/deposit",
     "instruction": "https://example.com/instruction",
+    "instruction_message": "📘 <b>How to use the bot</b>\n\n1) Register using our link.\n2) Complete your first deposit.\n3) Follow funnel steps and claim bonuses.",
     "bonus": "https://example.com/bonus",
     "signal": "https://example.com/signal",
     "webapp": "",
@@ -30,7 +31,7 @@ DEFAULT_FUNNEL_STEPS: list[dict[str, Any]] = [
         "photo": "",
         "buttons": [
             {"text": "📱 Register", "action": "url", "value": "registration"},
-            {"text": "📘 Guide", "action": "url", "value": "instruction"},
+            {"text": "📘 Guide", "action": "callback", "value": "instruction"},
             {"text": "🎁 Claim Bonus", "action": "next", "value": "3"},
         ],
     },

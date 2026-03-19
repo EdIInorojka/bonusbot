@@ -21,6 +21,9 @@
     <label>Ссылка инструкции (`instruction`)
       <input type="text" name="instruction" value="{{ links.get('instruction','') }}">
     </label>
+    <label style="grid-column: 1 / -1;">Текст инструкции (`instruction_message`, поддерживается HTML)
+      <textarea name="instruction_message" rows="5">{{ links.get('instruction_message','') }}</textarea>
+    </label>
     <label>Ссылка бонуса (`bonus`)
       <input type="text" name="bonus" value="{{ links.get('bonus','') }}">
     </label>

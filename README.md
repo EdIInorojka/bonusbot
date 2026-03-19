@@ -1,12 +1,12 @@
 # Telegram Funnel Bot (Vercel Only)
 
-Проект работает на Vercel: FastAPI admin + Telegram WebApp + aiogram webhook.
+FastAPI admin + Telegram WebApp + aiogram webhook.
 
-## 1) Где взять VERCEL_TOKEN
+## 1) Get VERCEL_TOKEN
 
-1. Открой https://vercel.com/account/tokens
-2. Нажми `Create Token`
-3. Скопируй токен
+1. Open https://vercel.com/account/tokens
+2. Click `Create Token`
+3. Copy token
 
 PowerShell:
 
@@ -14,21 +14,21 @@ PowerShell:
 $env:VERCEL_TOKEN="your_token_here"
 ```
 
-## 2) ENV переменные
+## 2) ENV
 
-Скопируй `.env.example` в `.env`.
+Copy `.env.example` to `.env`.
 
-### Вариант A: быстрый тест без внешних сервисов
+Quick test (no external services):
 
 - `DATABASE_URL=sqlite+aiosqlite:////tmp/bonuska.db`
-- `REDIS_URL=` (пусто)
+- `REDIS_URL=`
 
-### Вариант B: нормальный прод
+Production:
 
 - `DATABASE_URL=postgresql+asyncpg://...`
 - `REDIS_URL=redis://...`
 
-Обязательно в обоих вариантах:
+Required:
 
 - `BOT_TOKEN`
 - `BOT_USERNAME`
@@ -41,13 +41,17 @@ $env:VERCEL_TOKEN="your_token_here"
 - `ADMIN_PASSWORD`
 - `ADMIN_SESSION_SECRET`
 
-## 3) Деплой
+Optional for guide-as-message:
+
+- `INSTRUCTION_MESSAGE` (HTML is supported)
+
+## 3) Deploy
 
 ```powershell
 npx vercel --prod --yes --token $env:VERCEL_TOKEN
 ```
 
-## 4) Установка webhook
+## 4) Set webhook
 
 ```powershell
 Invoke-WebRequest -Method POST `
@@ -55,15 +59,15 @@ Invoke-WebRequest -Method POST `
   -Body "setup_token=<WEBHOOK_SETUP_TOKEN>"
 ```
 
-Проверка:
+Check:
 
 ```powershell
 Invoke-WebRequest -Uri "https://<project>.vercel.app/api/telegram/webhook-info?setup_token=<WEBHOOK_SETUP_TOKEN>"
 ```
 
-## 5) Админка
+## 5) Admin
 
-- Логин: `https://<project>.vercel.app/admin/login`
-- Контент-редактор: `https://<project>.vercel.app/admin/content`
+- Login: `https://<project>.vercel.app/admin/login`
+- Content editor: `https://<project>.vercel.app/admin/content`
 
-Там можно менять тексты, фото, кнопки, ссылки, канал проверки и шаги воронки.
+You can edit texts, photos, buttons, links, subscription channel, and all funnel steps.

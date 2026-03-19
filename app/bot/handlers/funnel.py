@@ -1,6 +1,6 @@
-﻿from aiogram import Bot, F, Router
+from aiogram import Bot, F, Router
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery
+from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 
 from app.bot.handlers.start import is_subscribed
 from app.bot.keyboards import step_keyboard
@@ -109,3 +109,32 @@ async def callback_back(call: CallbackQuery) -> None:
 @router.callback_query(F.data == "funnel:lang")
 async def callback_lang(call: CallbackQuery) -> None:
     await call.answer("Language switch is disabled.", show_alert=True)
+
+
+@router.callback_query(F.data == "funnel:instruction")
+async def callback_instruction(call: CallbackQuery) -> None:
+    if not call.from_user or not call.message:
+        return
+
+    async with AsyncSessionLocal() as session:
+        links = await get_links_config(session)
+        user = await session.get(User, call.from_user.id)
+        back_step = user.funnel_step if user else 2
+
+    instruction_text = (
+        links.get("instruction_message", "").strip()
+        or "📘 <b>How to use the bot</b>\n\n1) Register.\n2) Deposit.\n3) Follow funnel steps."
+    )
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="⬅ Back", callback_data=f"funnel:next:{back_step}")]
+        ]
+    )
+    await send_single_message(
+        bot=call.bot,
+        user_id=call.from_user.id,
+        chat_id=call.message.chat.id,
+        text=instruction_text,
+        reply_markup=keyboard,
+    )
+    await call.answer()

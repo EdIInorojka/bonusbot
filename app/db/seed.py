@@ -58,6 +58,7 @@ async def seed() -> None:
             "registration": settings.registration_url,
             "deposit": settings.deposit_url,
             "instruction": settings.instruction_url,
+            "instruction_message": settings.instruction_message,
             "bonus": settings.bonus_claim_url,
             "signal": settings.signal_url,
             "webapp": build_webapp_url(),
