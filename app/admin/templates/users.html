@@ -1,0 +1,30 @@
+﻿{% extends "base.html" %}
+{% block title %}Users{% endblock %}
+{% block content %}
+<h1>Пользователи и реферальные уровни</h1>
+<table>
+  <thead>
+    <tr>
+      <th>ID</th><th>User</th><th>Ref code</th><th>Inviter</th><th>L1</th><th>L2</th><th>L3</th><th>L4</th><th>L5</th><th>Баланс</th><th>Спины</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for u in users %}
+    {% set rc = referral_counts.get(u.id, {1:0,2:0,3:0,4:0,5:0}) %}
+    <tr>
+      <td>{{ u.id }}</td>
+      <td>@{{ u.username or '-' }}</td>
+      <td>{{ u.ref_code }}</td>
+      <td>{{ u.referred_by_id or '-' }}</td>
+      <td>{{ rc[1] }}</td>
+      <td>{{ rc[2] }}</td>
+      <td>{{ rc[3] }}</td>
+      <td>{{ rc[4] }}</td>
+      <td>{{ rc[5] }}</td>
+      <td>{{ u.balance }}</td>
+      <td>{{ u.total_spins }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

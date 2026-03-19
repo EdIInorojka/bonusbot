@@ -1,0 +1,39 @@
+﻿{% extends "base.html" %}
+{% block title %}Prizes{% endblock %}
+{% block content %}
+<h1>Управление призами</h1>
+<form class="grid form-grid" method="post" action="/admin/prizes/create">
+  <label>Название<input type="text" name="name" required></label>
+  <label>Текст выдачи<input type="text" name="display_text" required></label>
+  <label>Тип
+    <select name="prize_type">
+      {% for t in prize_types %}<option value="{{ t }}">{{ t }}</option>{% endfor %}
+    </select>
+  </label>
+  <label>Значение<input type="number" step="0.01" name="value" value="0"></label>
+  <label>Вес (%)<input type="number" step="0.01" name="weight" value="1"></label>
+  <label>Лимит/день<input type="number" name="daily_limit"></label>
+  <label>Лимит/польз<input type="number" name="per_user_limit"></label>
+  <button type="submit">Добавить приз</button>
+</form>
+
+<table>
+  <thead><tr><th>ID</th><th>Название</th><th>Текст</th><th>Тип</th><th>Вес</th><th>Активен</th><th>Действия</th></tr></thead>
+  <tbody>
+    {% for p in prizes %}
+    <tr>
+      <td>{{ p.id }}</td>
+      <td>{{ p.name }}</td>
+      <td>{{ p.display_text }}</td>
+      <td>{{ p.prize_type.value }}</td>
+      <td>{{ p.weight }}</td>
+      <td>{{ 'Да' if p.is_active else 'Нет' }}</td>
+      <td class="actions">
+        <form method="post" action="/admin/prizes/{{ p.id }}/toggle"><button>On/Off</button></form>
+        <form method="post" action="/admin/prizes/{{ p.id }}/delete"><button class="danger">Удалить</button></form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

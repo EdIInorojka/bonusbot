@@ -1,0 +1,94 @@
+﻿{% extends "base.html" %}
+{% block title %}Content{% endblock %}
+{% block content %}
+<h1>Управление контентом воронки</h1>
+
+{% if msg %}<div class="notice ok">{{ msg }}</div>{% endif %}
+{% if error %}<div class="notice err">{{ error }}</div>{% endif %}
+
+<section class="card">
+  <h2>Ссылки и канал проверки</h2>
+  <form method="post" action="/admin/content/links" class="grid form-grid">
+    <label>Канал для проверки подписки (`channel`)
+      <input type="text" name="channel" value="{{ links.get('channel','') }}" required>
+    </label>
+    <label>Ссылка регистрации (`registration`)
+      <input type="text" name="registration" value="{{ links.get('registration','') }}">
+    </label>
+    <label>Ссылка депозита (`deposit`)
+      <input type="text" name="deposit" value="{{ links.get('deposit','') }}">
+    </label>
+    <label>Ссылка инструкции (`instruction`)
+      <input type="text" name="instruction" value="{{ links.get('instruction','') }}">
+    </label>
+    <label>Ссылка бонуса (`bonus`)
+      <input type="text" name="bonus" value="{{ links.get('bonus','') }}">
+    </label>
+    <label>Ссылка сигнала (`signal`)
+      <input type="text" name="signal" value="{{ links.get('signal','') }}">
+    </label>
+    <label>Ссылка WebApp (`webapp`)
+      <input type="text" name="webapp" value="{{ links.get('webapp','') }}">
+    </label>
+    <label style="grid-column: 1 / -1;">Доп. алиасы ссылок (JSON объект)
+      <textarea name="extra_links_json" rows="6">{{ extra_links_json }}</textarea>
+    </label>
+    <button type="submit">Сохранить ссылки</button>
+  </form>
+</section>
+
+<section class="card">
+  <h2>Шаги воронки</h2>
+  <p class="muted">`photo` можно задать как Telegram `file_id` или публичный URL изображения.</p>
+  <p class="muted">`text` поддерживает HTML-разметку Telegram на всех шагах, включая главное меню.</p>
+
+  {% for item in steps_view %}
+  {% set step = item.step %}
+  <article class="step-card">
+    <header class="step-head">
+      <strong>Шаг {{ step.step }}</strong>
+    </header>
+    <form method="post" action="/admin/content/steps/save" class="step-form">
+      <input type="hidden" name="original_step" value="{{ step.step }}">
+      <label>Номер шага
+        <input type="number" min="1" name="step" value="{{ step.step }}" required>
+      </label>
+      <label>Текст сообщения
+        <textarea name="text" rows="6" required>{{ step.text }}</textarea>
+      </label>
+      <label>Фото (`file_id` или URL)
+        <input type="text" name="photo" value="{{ step.photo }}">
+      </label>
+      <label>Кнопки JSON
+        <textarea name="buttons_json" rows="8" required>{{ item.buttons_json }}</textarea>
+      </label>
+      <button type="submit">Сохранить шаг</button>
+    </form>
+    <form method="post" action="/admin/content/steps/{{ step.step }}/delete" class="delete-form">
+      <button type="submit" class="danger">Удалить шаг</button>
+    </form>
+  </article>
+  {% endfor %}
+</section>
+
+<section class="card">
+  <h2>Добавить новый шаг</h2>
+  <form method="post" action="/admin/content/steps/save" class="step-form">
+    <label>Номер шага
+      <input type="number" min="1" name="step" value="{{ next_step_default }}" required>
+    </label>
+    <label>Текст сообщения
+      <textarea name="text" rows="5" required></textarea>
+    </label>
+    <label>Фото (`file_id` или URL)
+      <input type="text" name="photo" value="">
+    </label>
+    <label>Кнопки JSON
+      <textarea name="buttons_json" rows="8" required>[{"text": "Кнопка", "action": "url", "value": "https://example.com"}]</textarea>
+    </label>
+    <button type="submit">Добавить шаг</button>
+  </form>
+  <p class="muted">Доступные `action`: {{ allowed_actions|join(', ') }}</p>
+  <p class="muted">Системные callback значения: `check_sub`, `continue`, `back`.</p>
+</section>
+{% endblock %}

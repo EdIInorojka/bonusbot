@@ -1,0 +1,1 @@
+﻿"""Bonuska funnel bot package."""

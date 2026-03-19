@@ -1,0 +1,17 @@
+﻿{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+{% block content %}
+<h1>Глобальные настройки</h1>
+<form method="post" action="/admin/settings" class="settings-form">
+  <label>Global win-rate (0..1)
+    <input type="number" min="0" max="1" step="0.01" name="global_win_rate" value="{{ data['global_win_rate'] }}" required>
+  </label>
+  <label>Cooldown сек
+    <input type="number" min="30" name="spin_cooldown_seconds" value="{{ data['spin_cooldown_seconds'] }}" required>
+  </label>
+  <label>Макс спинов / день / юзер
+    <input type="number" min="1" name="max_daily_spins_per_user" value="{{ data['max_daily_spins_per_user'] }}" required>
+  </label>
+  <button type="submit">Сохранить</button>
+</form>
+{% endblock %}

@@ -1,0 +1,27 @@
+﻿<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Bonuska Admin{% endblock %}</title>
+  <link rel="stylesheet" href="/admin/static/css/admin.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">Bonuska Admin</div>
+    <nav>
+      <a href="/admin">Дашборд</a>
+      <a href="/admin/prizes">Призы</a>
+      <a href="/admin/settings">Настройки</a>
+      <a href="/admin/content">Контент</a>
+      <a href="/admin/users">Пользователи</a>
+      <a href="/admin/export/users.xlsx">Export Users</a>
+      <a href="/admin/export/spins.xlsx">Export Spins</a>
+      <a href="/admin/logout">Выход</a>
+    </nav>
+  </header>
+  <main class="wrap">
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

@@ -1,0 +1,117 @@
+﻿:root {
+  --bg-1: #05060f;
+  --bg-2: #121127;
+  --text: #ecf1ff;
+  --yellow: #f8db2f;
+  --pink: #ff2462;
+  --orange: #ff7a18;
+  --machine: #2d2e37;
+  --line: #303549;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: "Montserrat", "Arial Black", sans-serif;
+  color: var(--text);
+  background:
+    radial-gradient(70% 50% at 20% 0%, rgba(76,40,140,.35), transparent),
+    radial-gradient(50% 50% at 100% 20%, rgba(255,76,0,.2), transparent),
+    linear-gradient(180deg, var(--bg-2), var(--bg-1));
+}
+.app-shell {
+  width: min(480px, 100%);
+  margin: 0 auto;
+  padding: 10px 12px 24px;
+}
+.topline {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+}
+.brand {
+  font-size: 16px;
+  font-weight: 700;
+  color: #ffd58a;
+}
+.slot-layout {
+  border-radius: 18px;
+  padding: 14px;
+  background: rgba(3, 5, 14, 0.8);
+  border: 1px solid rgba(255,255,255,.08);
+}
+.attempts {
+  font-size: clamp(22px, 3.8vw, 32px);
+  text-align: center;
+  margin: 6px 0 16px;
+  color: var(--yellow);
+  text-shadow: 0 0 14px rgba(248,219,47,.3);
+}
+.slot-machine {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.reel {
+  height: 150px;
+  border-radius: 16px;
+  border: 1px solid #2f3242;
+  background: linear-gradient(180deg, #4f525f, #2f3038 30%, #3f414e);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  box-shadow: inset 0 4px 20px rgba(0,0,0,.35);
+}
+.symbol {
+  font-size: 54px;
+  transition: transform .16s ease;
+}
+.reel.spinning .symbol {
+  animation: pulse .15s infinite;
+}
+@keyframes pulse {
+  0% { transform: translateY(-6px) scale(1.02); }
+  50% { transform: translateY(6px) scale(.98); }
+  100% { transform: translateY(-6px) scale(1.02); }
+}
+.spin-btn {
+  width: 140px;
+  margin: 0 auto;
+  display: block;
+  height: 52px;
+  border: none;
+  border-radius: 12px;
+  color: #fff;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: .6px;
+  background: linear-gradient(90deg, var(--orange), var(--pink));
+  box-shadow: 0 8px 25px rgba(255,44,111,.3);
+}
+.spin-btn:disabled {
+  filter: grayscale(1);
+  opacity: .6;
+}
+.result {
+  margin-top: 16px;
+  border-radius: 12px;
+  padding: 12px;
+  background: rgba(19, 24, 49, 0.8);
+  border: 1px solid var(--line);
+  text-align: center;
+}
+.result p {
+  margin: 0;
+  line-height: 1.3;
+}
+.prize-list {
+  margin: 16px 0 0;
+  padding-left: 18px;
+  color: #f7cb70;
+  font-size: 14px;
+}
+@media (max-width: 480px) {
+  .reel { height: 132px; }
+  .symbol { font-size: 46px; }
+}
