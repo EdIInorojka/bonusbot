@@ -96,6 +96,30 @@ def _parse_buttons_from_form(form) -> tuple[DynamicButton, ...]:
     return _parse_buttons_json(str(form.get("buttons_json", "[]")))
 
 
+def _validate_redirect_targets(
+    buttons: tuple[DynamicButton, ...],
+    available_step_ids: set[int],
+) -> tuple[DynamicButton, ...]:
+    validated: list[DynamicButton] = []
+    for idx, btn in enumerate(buttons, start=1):
+        if btn.action != "next":
+            validated.append(btn)
+            continue
+
+        raw = (btn.value or "").strip()
+        if not raw:
+            raise ValueError(f"Кнопка #{idx}: для action=next выбери целевой шаг")
+        try:
+            target = int(raw)
+        except ValueError as exc:
+            raise ValueError(f"Кнопка #{idx}: target должен быть числом шага") from exc
+        if target not in available_step_ids:
+            raise ValueError(f"Кнопка #{idx}: target шага #{target} не найден")
+        validated.append(DynamicButton(text=btn.text, action=btn.action, value=str(target)))
+
+    return tuple(validated)
+
+
 @router.get("")
 async def content_page(
     request: Request,
@@ -127,7 +151,7 @@ async def content_page(
             "links": links,
             "extra_links_json": json.dumps(extra_links, ensure_ascii=False, indent=2),
             "steps_view": steps_view,
-            "step_targets": [{"step": s.step, "title": s.title} for s in steps],
+            "step_targets": [{"step": s.step, "title": s.title, "slug": s.slug} for s in steps],
             "media_assets": assets,
             "required_step_slugs": list(REQUIRED_STEP_SLUGS),
             "allowed_actions": sorted(ALLOWED_ACTIONS),
@@ -228,6 +252,10 @@ async def save_step(
         duplicate_slug = next((s for s in steps if s.slug == slug and s.step != (original_step or step)), None)
         if duplicate_slug:
             raise ValueError("Slug уже занят другим шагом")
+
+        available_step_ids = {s.step for s in steps}
+        available_step_ids.add(step)
+        buttons = _validate_redirect_targets(buttons, available_step_ids)
 
         new_step = DynamicFunnelStep(
             step=step,

@@ -104,7 +104,7 @@
               <option value="{{ action }}" {% if btn.action == action %}selected{% endif %}>{{ action }}</option>
               {% endfor %}
             </select>
-            <input type="text" name="btn_value" class="btn-value" value="{{ btn.value }}" placeholder="Value">
+            <input type="text" name="btn_value" class="btn-value" value="{{ btn.value }}" placeholder="Value / URL">
             <select class="btn-target" data-current="{{ btn.value }}"></select>
             <button type="button" class="danger remove-btn-row">×</button>
           </div>
@@ -178,7 +178,8 @@
     STEP_TARGETS.forEach((t) => {
       const opt = document.createElement('option');
       opt.value = String(t.step);
-      opt.textContent = `#${t.step} ${t.title}`;
+      const slug = t.slug ? ` [${t.slug}]` : '';
+      opt.textContent = `#${t.step} ${t.title}${slug}`;
       if (String(t.step) === String(currentValue)) opt.selected = true;
       select.appendChild(opt);
     });
@@ -195,6 +196,8 @@
     const sync = () => {
       const isNext = action.value === 'next';
       targetSelect.style.display = isNext ? 'block' : 'none';
+      valueInput.readOnly = isNext;
+      valueInput.placeholder = isNext ? 'Choose target from list' : 'Value / URL';
       if (isNext && targetSelect.value) {
         valueInput.value = targetSelect.value;
       }
@@ -226,7 +229,7 @@
         <option value="{{ action }}">{{ action }}</option>
         {% endfor %}
       </select>
-      <input type="text" name="btn_value" class="btn-value" placeholder="Value">
+      <input type="text" name="btn_value" class="btn-value" placeholder="Value / URL">
       <select class="btn-target"></select>
       <button type="button" class="danger remove-btn-row">×</button>
     `;
