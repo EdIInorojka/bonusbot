@@ -53,6 +53,7 @@
     <thead>
       <tr>
         <th>ID</th>
+        <th>Превью</th>
         <th>Название</th>
         <th>Тип</th>
         <th>Значение</th>
@@ -63,6 +64,13 @@
       {% for item in assets %}
       <tr>
         <td>{{ item.id }}</td>
+        <td>
+          {% if item.preview_url %}
+            <img src="{{ item.preview_url }}" alt="preview" style="width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid #2a3558;">
+          {% else %}
+            —
+          {% endif %}
+        </td>
         <td>{{ item.label }}</td>
         <td>{{ item.asset_type.value }}</td>
         <td><code class="asset-code" id="asset-{{ item.id }}">{{ item.value }}</code></td>
@@ -74,7 +82,7 @@
         </td>
       </tr>
       {% else %}
-      <tr><td colspan="5">Пока пусто.</td></tr>
+      <tr><td colspan="6">Пока пусто.</td></tr>
       {% endfor %}
     </tbody>
   </table>

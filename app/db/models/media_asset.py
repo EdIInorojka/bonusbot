@@ -22,3 +22,4 @@ class MediaAsset(Base, TimestampMixin):
         default=MediaAssetType.file_id,
     )
     value: Mapped[str] = mapped_column(Text, nullable=False)
+    preview_url: Mapped[str | None] = mapped_column(Text, nullable=True)

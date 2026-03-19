@@ -1,7 +1,7 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% block title %}Content{% endblock %}
 {% block content %}
-<h1>Управление контентом воронки</h1>
+<h1>Конструктор воронки</h1>
 
 {% if msg %}<div class="notice ok">{{ msg }}</div>{% endif %}
 {% if error %}<div class="notice err">{{ error }}</div>{% endif %}
@@ -21,7 +21,7 @@
     <label>Ссылка инструкции (`instruction`)
       <input type="text" name="instruction" value="{{ links.get('instruction','') }}">
     </label>
-    <label style="grid-column: 1 / -1;">Текст инструкции (`instruction_message`, поддерживается HTML)
+    <label style="grid-column: 1 / -1;">Текст инструкции (`instruction_message`, HTML)
       <textarea name="instruction_message" rows="5">{{ links.get('instruction_message','') }}</textarea>
     </label>
     <label>Ссылка бонуса (`bonus`)
@@ -41,36 +41,83 @@
 </section>
 
 <section class="card">
-  <h2>Шаги воронки</h2>
-  <p class="muted">`photo` можно задать как Telegram `file_id` или публичный URL изображения.</p>
-  <p class="muted"><a href="/admin/media" target="_blank">Открыть медиатеку</a> и скопировать `file_id`/URL.</p>
-  <p class="muted">`text` поддерживает HTML-разметку Telegram на всех шагах, включая главное меню.</p>
+  <h2>Шаги</h2>
+  <p class="muted">`text` поддерживает HTML Telegram. Обязательные шаги: `primary_registration`, `main_menu`.</p>
+  <p class="muted"><a href="/admin/media" target="_blank">Открыть медиатеку</a> и выбрать фото прямо в шаге.</p>
 
   {% for item in steps_view %}
   {% set step = item.step %}
-  <article class="step-card">
+  <article class="step-card" id="step-{{ step.step }}">
     <header class="step-head">
-      <strong>Шаг {{ step.step }}</strong>
+      <strong>{{ step.title }} (ID {{ step.step }})</strong>
+      {% if item.is_required %}<span class="pill">обязательный</span>{% endif %}
     </header>
+
     <form method="post" action="/admin/content/steps/save" class="step-form">
       <input type="hidden" name="original_step" value="{{ step.step }}">
+
+      <label>Логическое имя шага (title)
+        <input type="text" name="title" value="{{ step.title }}" required>
+      </label>
+
+      <label>Код шага (slug)
+        <input type="text" name="slug" value="{{ step.slug }}" {% if item.is_required %}readonly{% endif %} required>
+      </label>
+
       <label>Номер шага
         <input type="number" min="1" name="step" value="{{ step.step }}" required>
       </label>
+
       <label>Текст сообщения
         <textarea name="text" rows="6" required>{{ step.text }}</textarea>
       </label>
+
       <label>Фото (`file_id` или URL)
-        <input type="text" name="photo" value="{{ step.photo }}">
+        <input type="text" id="photo-{{ step.step }}" name="photo" value="{{ step.photo }}">
       </label>
-      <p class="muted"><a href="/admin/media" target="_blank">Взять из медиатеки</a></p>
-      <label>Кнопки JSON
-        <textarea name="buttons_json" rows="8" required>{{ item.buttons_json }}</textarea>
+
+      <label>Выбрать из медиатеки
+        <select class="media-picker" data-target="photo-{{ step.step }}" data-preview="preview-{{ step.step }}">
+          <option value="">-- выбрать --</option>
+          {% for media in media_assets %}
+          {% set preview = media.preview_url if media.preview_url else (media.value if media.asset_type.value == 'url' else '') %}
+          <option value="{{ media.value }}" data-preview="{{ preview }}">#{{ media.id }} | {{ media.label }} | {{ media.asset_type.value }}</option>
+          {% endfor %}
+        </select>
       </label>
+
+      <div class="photo-preview-wrap">
+        <img id="preview-{{ step.step }}" class="photo-preview" src="" alt="preview" style="display:none;">
+      </div>
+
+      <div class="btn-builder" data-step="{{ step.step }}">
+        <div class="btn-builder-head">
+          <strong>Кнопки</strong>
+          <button type="button" class="add-btn-row">+ Кнопка</button>
+        </div>
+        <div class="btn-rows">
+          {% for btn in item.buttons %}
+          <div class="btn-row">
+            <input type="text" name="btn_text" value="{{ btn.text }}" placeholder="Текст" required>
+            <select name="btn_action" class="btn-action">
+              {% for action in allowed_actions %}
+              <option value="{{ action }}" {% if btn.action == action %}selected{% endif %}>{{ action }}</option>
+              {% endfor %}
+            </select>
+            <input type="text" name="btn_value" class="btn-value" value="{{ btn.value }}" placeholder="Value">
+            <select class="btn-target" data-current="{{ btn.value }}"></select>
+            <button type="button" class="danger remove-btn-row">×</button>
+          </div>
+          {% endfor %}
+        </div>
+        <input type="hidden" name="buttons_json" value="{{ item.buttons_json|e }}">
+      </div>
+
       <button type="submit">Сохранить шаг</button>
     </form>
+
     <form method="post" action="/admin/content/steps/{{ step.step }}/delete" class="delete-form">
-      <button type="submit" class="danger">Удалить шаг</button>
+      <button type="submit" class="danger" {% if item.is_required %}disabled{% endif %}>Удалить шаг</button>
     </form>
   </article>
   {% endfor %}
@@ -78,7 +125,13 @@
 
 <section class="card">
   <h2>Добавить новый шаг</h2>
-  <form method="post" action="/admin/content/steps/save" class="step-form">
+  <form method="post" action="/admin/content/steps/save" class="step-form" id="new-step-form">
+    <label>Логическое имя шага (title)
+      <input type="text" name="title" value="New Step" required>
+    </label>
+    <label>Код шага (slug)
+      <input type="text" name="slug" value="step_{{ next_step_default }}" required>
+    </label>
     <label>Номер шага
       <input type="number" min="1" name="step" value="{{ next_step_default }}" required>
     </label>
@@ -86,15 +139,164 @@
       <textarea name="text" rows="5" required></textarea>
     </label>
     <label>Фото (`file_id` или URL)
-      <input type="text" name="photo" value="">
+      <input type="text" id="photo-new" name="photo" value="">
     </label>
-    <p class="muted"><a href="/admin/media" target="_blank">Взять из медиатеки</a></p>
-    <label>Кнопки JSON
-      <textarea name="buttons_json" rows="8" required>[{"text": "Кнопка", "action": "url", "value": "https://example.com"}]</textarea>
+    <label>Выбрать из медиатеки
+      <select class="media-picker" data-target="photo-new" data-preview="preview-new">
+        <option value="">-- выбрать --</option>
+        {% for media in media_assets %}
+        {% set preview = media.preview_url if media.preview_url else (media.value if media.asset_type.value == 'url' else '') %}
+        <option value="{{ media.value }}" data-preview="{{ preview }}">#{{ media.id }} | {{ media.label }} | {{ media.asset_type.value }}</option>
+        {% endfor %}
+      </select>
     </label>
+
+    <div class="photo-preview-wrap">
+      <img id="preview-new" class="photo-preview" src="" alt="preview" style="display:none;">
+    </div>
+
+    <div class="btn-builder" data-step="new">
+      <div class="btn-builder-head">
+        <strong>Кнопки</strong>
+        <button type="button" class="add-btn-row">+ Кнопка</button>
+      </div>
+      <div class="btn-rows"></div>
+      <input type="hidden" name="buttons_json" value='[{"text":"Button","action":"url","value":"https://example.com"}]'>
+    </div>
+
     <button type="submit">Добавить шаг</button>
   </form>
-  <p class="muted">Доступные `action`: {{ allowed_actions|join(', ') }}</p>
-  <p class="muted">Системные callback значения: `check_sub`, `continue`, `back`.</p>
+  <p class="muted">Доступные action: {{ allowed_actions|join(', ') }}</p>
+  <p class="muted">Системные callback значения: `check_sub`, `instruction`, `continue`, `back`.</p>
 </section>
+
+<script>
+  const STEP_TARGETS = {{ step_targets|tojson|safe }};
+
+  function createTargetOptions(select, currentValue = "") {
+    select.innerHTML = '<option value="">redirect target</option>';
+    STEP_TARGETS.forEach((t) => {
+      const opt = document.createElement('option');
+      opt.value = String(t.step);
+      opt.textContent = `#${t.step} ${t.title}`;
+      if (String(t.step) === String(currentValue)) opt.selected = true;
+      select.appendChild(opt);
+    });
+  }
+
+  function bindButtonRow(row) {
+    const action = row.querySelector('.btn-action');
+    const valueInput = row.querySelector('.btn-value');
+    const targetSelect = row.querySelector('.btn-target');
+    const removeBtn = row.querySelector('.remove-btn-row');
+
+    createTargetOptions(targetSelect, targetSelect.dataset.current || valueInput.value || '');
+
+    const sync = () => {
+      const isNext = action.value === 'next';
+      targetSelect.style.display = isNext ? 'block' : 'none';
+      if (isNext && targetSelect.value) {
+        valueInput.value = targetSelect.value;
+      }
+    };
+
+    action.addEventListener('change', sync);
+    targetSelect.addEventListener('change', () => {
+      valueInput.value = targetSelect.value;
+    });
+
+    removeBtn.addEventListener('click', () => {
+      const container = row.closest('.btn-rows');
+      row.remove();
+      if (container && container.children.length === 0) {
+        container.appendChild(buildEmptyRow());
+      }
+    });
+
+    sync();
+  }
+
+  function buildEmptyRow() {
+    const row = document.createElement('div');
+    row.className = 'btn-row';
+    row.innerHTML = `
+      <input type="text" name="btn_text" placeholder="Text" required>
+      <select name="btn_action" class="btn-action">
+        {% for action in allowed_actions %}
+        <option value="{{ action }}">{{ action }}</option>
+        {% endfor %}
+      </select>
+      <input type="text" name="btn_value" class="btn-value" placeholder="Value">
+      <select class="btn-target"></select>
+      <button type="button" class="danger remove-btn-row">×</button>
+    `;
+    bindButtonRow(row);
+    return row;
+  }
+
+  function initBuilders() {
+    document.querySelectorAll('.btn-builder').forEach((builder) => {
+      const rows = builder.querySelector('.btn-rows');
+      const addBtn = builder.querySelector('.add-btn-row');
+
+      if (rows.children.length === 0) {
+        rows.appendChild(buildEmptyRow());
+      } else {
+        rows.querySelectorAll('.btn-row').forEach(bindButtonRow);
+      }
+
+      addBtn.addEventListener('click', () => {
+        rows.appendChild(buildEmptyRow());
+      });
+    });
+  }
+
+  function updatePreviewByValue(value, previewId, fallbackInput) {
+    const img = document.getElementById(previewId);
+    if (!img) return;
+
+    let src = value || '';
+    if (!src && fallbackInput && fallbackInput.value && /^https?:\/\//.test(fallbackInput.value)) {
+      src = fallbackInput.value;
+    }
+
+    if (src && (src.startsWith('http://') || src.startsWith('https://') || src.startsWith('data:image/'))) {
+      img.src = src;
+      img.style.display = 'block';
+    } else {
+      img.removeAttribute('src');
+      img.style.display = 'none';
+    }
+  }
+
+  function initMediaPickers() {
+    document.querySelectorAll('.media-picker').forEach((select) => {
+      const targetId = select.dataset.target;
+      const previewId = select.dataset.preview;
+      const target = document.getElementById(targetId);
+
+      const refresh = () => {
+        const opt = select.options[select.selectedIndex];
+        const pickedValue = opt ? (opt.value || '') : '';
+        const preview = opt ? (opt.dataset.preview || '') : '';
+        if (target && pickedValue) {
+          target.value = pickedValue;
+        }
+        updatePreviewByValue(preview, previewId, target);
+      };
+
+      select.addEventListener('change', refresh);
+
+      if (target) {
+        target.addEventListener('input', () => {
+          updatePreviewByValue('', previewId, target);
+        });
+        updatePreviewByValue('', previewId, target);
+      }
+    });
+  }
+
+  initBuilders();
+  initMediaPickers();
+</script>
 {% endblock %}

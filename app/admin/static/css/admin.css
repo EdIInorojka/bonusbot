@@ -162,6 +162,16 @@ button.danger {
 }
 .step-head {
   margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.pill {
+  font-size: 11px;
+  color: #101728;
+  background: #f9cd7f;
+  border-radius: 99px;
+  padding: 3px 8px;
 }
 .step-form {
   display: grid;
@@ -204,8 +214,42 @@ textarea {
   text-overflow: ellipsis;
   vertical-align: bottom;
 }
+.btn-builder {
+  border: 1px solid #2a3558;
+  border-radius: 10px;
+  padding: 10px;
+  background: #0f1730;
+}
+.btn-builder-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.btn-rows {
+  display: grid;
+  gap: 8px;
+}
+.btn-row {
+  display: grid;
+  grid-template-columns: 1.3fr 0.8fr 1fr 1fr auto;
+  gap: 8px;
+}
+.btn-target {
+  display: none;
+}
+.photo-preview-wrap {
+  display: block;
+}
+.photo-preview {
+  width: 200px;
+  max-width: 100%;
+  border-radius: 8px;
+  border: 1px solid #2a3558;
+}
 @media (max-width: 768px) {
   .wrap { padding: 14px; }
   th, td { font-size: 12px; }
   .asset-code { max-width: 180px; }
+  .btn-row { grid-template-columns: 1fr; }
 }

@@ -8,7 +8,13 @@ from aiogram.types import Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot.keyboards import step_keyboard
-from app.bot.services.content import get_funnel_steps, get_links_config, get_step_by_id, step_ids
+from app.bot.services.content import (
+    get_funnel_steps,
+    get_links_config,
+    get_step_by_id,
+    get_step_by_slug,
+    step_ids,
+)
 from app.bot.services.funnel import render_step_text
 from app.bot.services.referrals import attach_referrer
 from app.bot.services.single_message import send_single_message
@@ -93,19 +99,19 @@ async def _handle_start(message: Message, state: FSMContext, start_param: Option
 
         links = await get_links_config(session)
         steps = await get_funnel_steps(session)
-        first_step = steps[0]
-        start_step = steps[1] if len(steps) > 1 else steps[0]
+        primary_step = get_step_by_slug(steps, "primary_registration") or steps[0]
+        main_menu_step = get_step_by_slug(steps, "main_menu") or (steps[1] if len(steps) > 1 else steps[0])
 
         subscribed = await is_subscribed(message.bot, user.id, links.get("channel", ""))
         if not subscribed:
-            user.funnel_step = first_step.step
+            user.funnel_step = primary_step.step
             await session.commit()
             await state.set_state(FunnelStates.waiting_subscription)
             await _send_step_message(message, session, user.id)
             return
 
-        if user.funnel_step < start_step.step:
-            user.funnel_step = start_step.step
+        if user.funnel_step < main_menu_step.step:
+            user.funnel_step = main_menu_step.step
 
         await session.commit()
         await state.set_state(FunnelStates.in_funnel)

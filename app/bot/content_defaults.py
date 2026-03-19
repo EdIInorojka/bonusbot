@@ -18,6 +18,8 @@ DEFAULT_LINKS: dict[str, str] = {
 DEFAULT_FUNNEL_STEPS: list[dict[str, Any]] = [
     {
         "step": 1,
+        "title": "Primary Registration",
+        "slug": "primary_registration",
         "text": "Welcome!\n\nTo use the bot, subscribe to our channel first.",
         "photo": "",
         "buttons": [
@@ -27,6 +29,8 @@ DEFAULT_FUNNEL_STEPS: list[dict[str, Any]] = [
     },
     {
         "step": 2,
+        "title": "Main Menu",
+        "slug": "main_menu",
         "text": "Main Menu\n\nWhat can this bot do?\n🎁 Claim bonuses every day\n▶ Follow the steps to unlock rewards",
         "photo": "",
         "buttons": [
@@ -37,6 +41,8 @@ DEFAULT_FUNNEL_STEPS: list[dict[str, Any]] = [
     },
     {
         "step": 3,
+        "title": "Registration Check",
+        "slug": "registration_check",
         "text": "Registration is not completed yet.\n\nUse promo code <b>honor17</b> during registration.\n\nAfter registration, you will receive an automatic update in the bot.",
         "photo": "",
         "buttons": [
@@ -46,6 +52,8 @@ DEFAULT_FUNNEL_STEPS: list[dict[str, Any]] = [
     },
     {
         "step": 4,
+        "title": "First Deposit",
+        "slug": "first_deposit",
         "text": "Registration completed!\n\nStep 2: make your first deposit.\n\nA higher deposit gives you a higher level and more high-probability signals.\n\nAfter the first deposit, you will receive an automatic update in the bot.",
         "photo": "",
         "buttons": [
@@ -55,6 +63,8 @@ DEFAULT_FUNNEL_STEPS: list[dict[str, Any]] = [
     },
     {
         "step": 5,
+        "title": "Bonus Claim",
+        "slug": "bonus_claim",
         "text": "Claim your bonuses right now.\n\nYou already got +70 free spins on multiple slots, and we also unlock a crypto giveaway for you.\n\nGet from 0.5 USDT up to 1 BTC.",
         "photo": "",
         "buttons": [
@@ -64,6 +74,8 @@ DEFAULT_FUNNEL_STEPS: list[dict[str, Any]] = [
     },
     {
         "step": 6,
+        "title": "Crypto Bonus",
+        "slug": "crypto_bonus",
         "text": "You won 1 USDT, and this is just the beginning.\n\nClaim 1 USDT: https://t.me/huntzbtc/coin/55466\n\nSpin the free roulette and unlock even more bonuses.",
         "photo": "",
         "buttons": [
@@ -72,6 +84,8 @@ DEFAULT_FUNNEL_STEPS: list[dict[str, Any]] = [
     },
     {
         "step": 7,
+        "title": "Mega Slot Intro",
+        "slug": "mega_slot_intro",
         "text": "Final stage unlocked.\n\nMega bonus is available now. Possible rewards:\n\n🍒 +5 spins\n🍒 Deposit bonus up to 32,000₽\n🍒 Voucher up to 70,000₽\n🍒 0.3 BTC\n🍒 500 FS",
         "photo": "",
         "buttons": [
@@ -82,6 +96,8 @@ DEFAULT_FUNNEL_STEPS: list[dict[str, Any]] = [
     },
     {
         "step": 8,
+        "title": "Post Win",
+        "slug": "post_win",
         "text": "Mega bonus is now active for you.\n\nClaim it instantly and continue the flow to increase your rewards.",
         "photo": "",
         "buttons": [

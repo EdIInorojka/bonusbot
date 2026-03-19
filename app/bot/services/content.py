@@ -1,6 +1,7 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -14,6 +15,7 @@ from app.db.models.admin_settings import AdminSettings
 LINKS_SETTING_KEY = "links_json"
 FUNNEL_SETTING_KEY = "funnel_steps_json"
 ALLOWED_ACTIONS = {"url", "webapp", "callback", "next", "share"}
+REQUIRED_STEP_SLUGS = ("primary_registration", "main_menu")
 
 
 @dataclass(frozen=True)
@@ -26,15 +28,15 @@ class DynamicButton:
 @dataclass(frozen=True)
 class DynamicFunnelStep:
     step: int
+    title: str
+    slug: str
     text: str
     photo: str
     buttons: tuple[DynamicButton, ...]
 
 
-
 def _dump_json(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False)
-
 
 
 def _load_json(value: str, fallback: Any) -> Any:
@@ -42,7 +44,6 @@ def _load_json(value: str, fallback: Any) -> Any:
         return json.loads(value)
     except Exception:
         return fallback
-
 
 
 def _default_links_from_settings() -> dict[str, str]:
@@ -87,6 +88,27 @@ async def _set_json_setting(session: AsyncSession, key: str, value: Any) -> None
     await session.flush()
 
 
+def _sanitize_slug(value: str) -> str:
+    cleaned = re.sub(r"[^a-z0-9_]+", "_", value.strip().lower())
+    cleaned = re.sub(r"_+", "_", cleaned).strip("_")
+    return cleaned
+
+
+def _fallback_title(step_id: int) -> str:
+    if step_id == 1:
+        return "Primary Registration"
+    if step_id == 2:
+        return "Main Menu"
+    return f"Step {step_id}"
+
+
+def _fallback_slug(step_id: int) -> str:
+    if step_id == 1:
+        return "primary_registration"
+    if step_id == 2:
+        return "main_menu"
+    return f"step_{step_id}"
+
 
 def _normalize_button(raw: Any) -> DynamicButton | None:
     if not isinstance(raw, dict):
@@ -100,7 +122,6 @@ def _normalize_button(raw: Any) -> DynamicButton | None:
     if action == "callback" and value == "lang":
         return None
     return DynamicButton(text=text, action=action, value=value)
-
 
 
 def _normalize_step(raw: Any) -> DynamicFunnelStep | None:
@@ -119,6 +140,12 @@ def _normalize_step(raw: Any) -> DynamicFunnelStep | None:
     if not text:
         return None
 
+    title = str(raw.get("title", "")).strip() or _fallback_title(step_id)
+    raw_slug = str(raw.get("slug", "")).strip()
+    slug = _sanitize_slug(raw_slug) if raw_slug else _fallback_slug(step_id)
+    if not slug:
+        slug = _fallback_slug(step_id)
+
     photo = str(raw.get("photo", "")).strip()
     raw_buttons = raw.get("buttons", [])
     buttons: list[DynamicButton] = []
@@ -129,13 +156,60 @@ def _normalize_step(raw: Any) -> DynamicFunnelStep | None:
             if button:
                 buttons.append(button)
 
-    return DynamicFunnelStep(step=step_id, text=text, photo=photo, buttons=tuple(buttons))
+    return DynamicFunnelStep(
+        step=step_id,
+        title=title,
+        slug=slug,
+        text=text,
+        photo=photo,
+        buttons=tuple(buttons),
+    )
 
+
+def _with_step_id(step: DynamicFunnelStep, step_id: int) -> DynamicFunnelStep:
+    return DynamicFunnelStep(
+        step=step_id,
+        title=step.title,
+        slug=step.slug,
+        text=step.text,
+        photo=step.photo,
+        buttons=step.buttons,
+    )
+
+
+def _ensure_required_steps(steps: list[DynamicFunnelStep]) -> list[DynamicFunnelStep]:
+    defaults_by_slug: dict[str, DynamicFunnelStep] = {}
+    for raw in DEFAULT_FUNNEL_STEPS:
+        norm = _normalize_step(raw)
+        if norm:
+            defaults_by_slug[norm.slug] = norm
+
+    by_slug = {step.slug: step for step in steps}
+    used_ids = {step.step for step in steps}
+    max_id = max(used_ids) if used_ids else 0
+
+    fixed = list(steps)
+    for slug in REQUIRED_STEP_SLUGS:
+        if slug in by_slug:
+            continue
+        default = defaults_by_slug.get(slug)
+        if not default:
+            continue
+        target_id = default.step
+        if target_id in used_ids:
+            max_id += 1
+            target_id = max_id
+        used_ids.add(target_id)
+        fixed.append(_with_step_id(default, target_id))
+
+    return fixed
 
 
 def step_to_storage(step: DynamicFunnelStep) -> dict[str, Any]:
     return {
         "step": step.step,
+        "title": step.title,
+        "slug": step.slug,
         "text": step.text,
         "photo": step.photo,
         "buttons": [
@@ -193,13 +267,26 @@ async def get_funnel_steps(session: AsyncSession) -> list[DynamicFunnelStep]:
             if step:
                 steps.append(step)
 
-    unique: dict[int, DynamicFunnelStep] = {step.step: step for step in steps}
-    ordered = sorted(unique.values(), key=lambda x: x.step)
+    unique_by_id: dict[int, DynamicFunnelStep] = {step.step: step for step in steps}
+    ordered = sorted(unique_by_id.values(), key=lambda x: x.step)
+
+    unique_by_slug: dict[str, DynamicFunnelStep] = {}
+    for step in ordered:
+        if step.slug not in unique_by_slug:
+            unique_by_slug[step.slug] = step
+    ordered = sorted(unique_by_slug.values(), key=lambda x: x.step)
+
+    ordered = _ensure_required_steps(ordered)
+    ordered = sorted(ordered, key=lambda x: x.step)
     return ordered
 
 
 async def save_funnel_steps(session: AsyncSession, steps: list[DynamicFunnelStep]) -> None:
-    ordered = sorted(steps, key=lambda x: x.step)
+    unique_by_id: dict[int, DynamicFunnelStep] = {step.step: step for step in steps}
+    ordered = sorted(unique_by_id.values(), key=lambda x: x.step)
+    ordered = _ensure_required_steps(ordered)
+    ordered = sorted(ordered, key=lambda x: x.step)
+
     payload = [step_to_storage(step) for step in ordered]
     await _set_json_setting(session, FUNNEL_SETTING_KEY, payload)
 
@@ -214,6 +301,10 @@ async def upsert_funnel_step(session: AsyncSession, new_step: DynamicFunnelStep)
 
 async def delete_funnel_step(session: AsyncSession, step_id: int) -> list[DynamicFunnelStep]:
     steps = await get_funnel_steps(session)
+    target = next((step for step in steps if step.step == step_id), None)
+    if target and target.slug in REQUIRED_STEP_SLUGS:
+        return steps
+
     items = [step for step in steps if step.step != step_id]
     if not items:
         default_first = _normalize_step(DEFAULT_FUNNEL_STEPS[0])
@@ -221,7 +312,6 @@ async def delete_funnel_step(session: AsyncSession, step_id: int) -> list[Dynami
             items = [default_first]
     await save_funnel_steps(session, items)
     return sorted(items, key=lambda x: x.step)
-
 
 
 def get_step_by_id(steps: list[DynamicFunnelStep], step_id: int) -> DynamicFunnelStep:
@@ -241,10 +331,16 @@ def get_step_by_id(steps: list[DynamicFunnelStep], step_id: int) -> DynamicFunne
     return by_id[ordered_ids[-1]]
 
 
+def get_step_by_slug(steps: list[DynamicFunnelStep], slug: str) -> DynamicFunnelStep | None:
+    wanted = _sanitize_slug(slug)
+    for step in steps:
+        if step.slug == wanted:
+            return step
+    return None
+
 
 def step_ids(steps: list[DynamicFunnelStep]) -> list[int]:
     return [step.step for step in steps]
-
 
 
 def next_step_id(current_step: int, steps: list[DynamicFunnelStep]) -> int:
@@ -258,7 +354,6 @@ def next_step_id(current_step: int, steps: list[DynamicFunnelStep]) -> int:
     return ids[-1]
 
 
-
 def prev_step_id(current_step: int, steps: list[DynamicFunnelStep]) -> int:
     ids = step_ids(steps)
     if not ids:
@@ -270,7 +365,6 @@ def prev_step_id(current_step: int, steps: list[DynamicFunnelStep]) -> int:
             return prev
         prev = step_id
     return ids[-1]
-
 
 
 def step_position(step: DynamicFunnelStep, steps: list[DynamicFunnelStep]) -> tuple[int, int]:

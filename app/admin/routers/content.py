@@ -1,13 +1,16 @@
-﻿import json
+import json
+import re
 from urllib.parse import quote_plus
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.admin.deps import db_session, require_admin, templates
 from app.bot.services.content import (
     ALLOWED_ACTIONS,
+    REQUIRED_STEP_SLUGS,
     DynamicButton,
     DynamicFunnelStep,
     get_funnel_steps,
@@ -15,11 +18,27 @@ from app.bot.services.content import (
     save_funnel_steps,
     save_links_config,
 )
+from app.db.models.media_asset import MediaAsset
 
 
 router = APIRouter(prefix="/admin/content", tags=["admin-content"])
 
-FIXED_LINK_KEYS = ["channel", "registration", "deposit", "instruction", "instruction_message", "bonus", "signal", "webapp"]
+FIXED_LINK_KEYS = [
+    "channel",
+    "registration",
+    "deposit",
+    "instruction",
+    "instruction_message",
+    "bonus",
+    "signal",
+    "webapp",
+]
+
+
+def _sanitize_slug(value: str) -> str:
+    cleaned = re.sub(r"[^a-z0-9_]+", "_", value.strip().lower())
+    cleaned = re.sub(r"_+", "_", cleaned).strip("_")
+    return cleaned
 
 
 def _buttons_to_json(step: DynamicFunnelStep) -> str:
@@ -27,7 +46,7 @@ def _buttons_to_json(step: DynamicFunnelStep) -> str:
     return json.dumps(payload, ensure_ascii=False, indent=2)
 
 
-def _parse_buttons(buttons_json: str) -> tuple[DynamicButton, ...]:
+def _parse_buttons_json(buttons_json: str) -> tuple[DynamicButton, ...]:
     try:
         raw = json.loads(buttons_json)
     except json.JSONDecodeError as exc:
@@ -52,6 +71,31 @@ def _parse_buttons(buttons_json: str) -> tuple[DynamicButton, ...]:
     return tuple(buttons)
 
 
+def _parse_buttons_from_form(form) -> tuple[DynamicButton, ...]:
+    texts = form.getlist("btn_text")
+    actions = form.getlist("btn_action")
+    values = form.getlist("btn_value")
+
+    if texts or actions or values:
+        max_len = max(len(texts), len(actions), len(values))
+        buttons: list[DynamicButton] = []
+        for i in range(max_len):
+            text = texts[i].strip() if i < len(texts) else ""
+            action = actions[i].strip() if i < len(actions) else ""
+            value = values[i].strip() if i < len(values) else ""
+
+            if not text and not action and not value:
+                continue
+            if not text:
+                raise ValueError(f"Кнопка #{i + 1}: пустой text")
+            if action not in ALLOWED_ACTIONS:
+                raise ValueError(f"Кнопка #{i + 1}: action должен быть одним из {sorted(ALLOWED_ACTIONS)}")
+            buttons.append(DynamicButton(text=text, action=action, value=value))
+        return tuple(buttons)
+
+    return _parse_buttons_json(str(form.get("buttons_json", "[]")))
+
+
 @router.get("")
 async def content_page(
     request: Request,
@@ -60,12 +104,17 @@ async def content_page(
 ):
     links = await get_links_config(session)
     steps = await get_funnel_steps(session)
+    assets = (
+        await session.execute(select(MediaAsset).order_by(MediaAsset.created_at.desc(), MediaAsset.id.desc()))
+    ).scalars().all()
 
     extra_links = {k: v for k, v in links.items() if k not in FIXED_LINK_KEYS}
     steps_view = [
         {
             "step": step,
             "buttons_json": _buttons_to_json(step),
+            "buttons": [{"text": b.text, "action": b.action, "value": b.value} for b in step.buttons],
+            "is_required": step.slug in REQUIRED_STEP_SLUGS,
         }
         for step in steps
     ]
@@ -78,6 +127,9 @@ async def content_page(
             "links": links,
             "extra_links_json": json.dumps(extra_links, ensure_ascii=False, indent=2),
             "steps_view": steps_view,
+            "step_targets": [{"step": s.step, "title": s.title} for s in steps],
+            "media_assets": assets,
+            "required_step_slugs": list(REQUIRED_STEP_SLUGS),
             "allowed_actions": sorted(ALLOWED_ACTIONS),
             "msg": request.query_params.get("msg", ""),
             "error": request.query_params.get("error", ""),
@@ -139,29 +191,53 @@ async def update_links(
 
 @router.post("/steps/save")
 async def save_step(
+    request: Request,
     _: str = Depends(require_admin),
     session: AsyncSession = Depends(db_session),
-    original_step: int | None = Form(default=None),
-    step: int = Form(...),
-    text: str = Form(...),
-    photo: str = Form(default=""),
-    buttons_json: str = Form(default="[]"),
 ):
+    form = await request.form()
     try:
+        original_step_raw = str(form.get("original_step", "")).strip()
+        original_step = int(original_step_raw) if original_step_raw else None
+
+        step = int(str(form.get("step", "")).strip())
         if step < 1:
             raise ValueError("step должен быть >= 1")
-        if not text.strip():
+
+        title = str(form.get("title", "")).strip()
+        if not title:
+            raise ValueError("title не может быть пустым")
+
+        slug = _sanitize_slug(str(form.get("slug", "")).strip())
+        if not slug:
+            raise ValueError("slug не может быть пустым")
+
+        text = str(form.get("text", "")).strip()
+        if not text:
             raise ValueError("text не может быть пустым")
 
-        buttons = _parse_buttons(buttons_json)
+        photo = str(form.get("photo", "")).strip()
+        buttons = _parse_buttons_from_form(form)
+
+        steps = await get_funnel_steps(session)
+        original_item = next((s for s in steps if s.step == original_step), None) if original_step else None
+
+        if original_item and original_item.slug in REQUIRED_STEP_SLUGS and slug != original_item.slug:
+            raise ValueError("Slug обязательного шага менять нельзя")
+
+        duplicate_slug = next((s for s in steps if s.slug == slug and s.step != (original_step or step)), None)
+        if duplicate_slug:
+            raise ValueError("Slug уже занят другим шагом")
+
         new_step = DynamicFunnelStep(
             step=step,
-            text=text.strip(),
-            photo=photo.strip(),
+            title=title,
+            slug=slug,
+            text=text,
+            photo=photo,
             buttons=buttons,
         )
 
-        steps = await get_funnel_steps(session)
         next_steps = [s for s in steps if s.step != step]
         if original_step is not None and original_step != step:
             next_steps = [s for s in next_steps if s.step != original_step]
@@ -185,6 +261,14 @@ async def delete_step(
     session: AsyncSession = Depends(db_session),
 ):
     steps = await get_funnel_steps(session)
+    target = next((s for s in steps if s.step == step_id), None)
+
+    if target and target.slug in REQUIRED_STEP_SLUGS:
+        return RedirectResponse(
+            url="/admin/content?error=Нельзя+удалить+обязательный+шаг",
+            status_code=302,
+        )
+
     next_steps = [s for s in steps if s.step != step_id]
 
     if not next_steps:

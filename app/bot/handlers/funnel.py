@@ -4,7 +4,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 
 from app.bot.handlers.start import is_subscribed
 from app.bot.keyboards import step_keyboard
-from app.bot.services.content import get_funnel_steps, get_links_config, get_step_by_id, step_ids
+from app.bot.services.content import get_funnel_steps, get_links_config, get_step_by_id, get_step_by_slug, step_ids
 from app.bot.services.funnel import next_step, prev_step, render_step_text
 from app.bot.services.single_message import send_single_message
 from app.bot.states import FunnelStates
@@ -48,7 +48,7 @@ async def callback_check_sub(call: CallbackQuery, state: FSMContext) -> None:
     async with AsyncSessionLocal() as session:
         links = await get_links_config(session)
         steps = await get_funnel_steps(session)
-        start_step = steps[1] if len(steps) > 1 else steps[0]
+        start_step = get_step_by_slug(steps, "main_menu") or (steps[1] if len(steps) > 1 else steps[0])
 
     ok = await is_subscribed(call.bot, call.from_user.id, links.get("channel", ""))
     if not ok:

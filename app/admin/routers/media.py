@@ -1,3 +1,4 @@
+import base64
 from urllib.parse import quote_plus
 
 from aiogram.types import BufferedInputFile
@@ -102,6 +103,11 @@ async def upload_media_file(
         label=label.strip() or image.filename,
         asset_type=MediaAssetType.file_id,
         value=file_id,
+        preview_url=(
+            f"data:{content_type};base64,{base64.b64encode(data).decode('ascii')}"
+            if len(data) <= 1_500_000
+            else None
+        ),
     )
     session.add(asset)
     await session.commit()
@@ -124,6 +130,7 @@ async def add_media_url(
         label=label.strip() or "url-image",
         asset_type=MediaAssetType.url,
         value=value,
+        preview_url=value,
     )
     session.add(asset)
     await session.commit()
@@ -145,6 +152,7 @@ async def add_media_file_id(
         label=label.strip() or "telegram-file-id",
         asset_type=MediaAssetType.file_id,
         value=value,
+        preview_url=None,
     )
     session.add(asset)
     await session.commit()
