@@ -1,6 +1,7 @@
 import os
 from functools import lru_cache
 from pathlib import Path
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -124,10 +125,28 @@ def normalize_database_url_for_async(database_url: str | None = None) -> str:
 
     lower = db_url.lower()
     if lower.startswith("postgres://"):
-        return "postgresql+asyncpg://" + db_url[len("postgres://") :]
-    if lower.startswith("postgresql://"):
-        return "postgresql+asyncpg://" + db_url[len("postgresql://") :]
-    return db_url
+        db_url = "postgresql+asyncpg://" + db_url[len("postgres://") :]
+    elif lower.startswith("postgresql://"):
+        db_url = "postgresql+asyncpg://" + db_url[len("postgresql://") :]
+
+    if not db_url.lower().startswith("postgresql+asyncpg://"):
+        return db_url
+
+    split = urlsplit(db_url)
+    if not split.query:
+        return db_url
+
+    blocked_keys = {"channel_binding", "sslmode"}
+    safe_query = [(k, v) for k, v in parse_qsl(split.query, keep_blank_values=True) if k not in blocked_keys]
+    return urlunsplit(
+        (
+            split.scheme,
+            split.netloc,
+            split.path,
+            urlencode(safe_query, doseq=True),
+            split.fragment,
+        )
+    )
 
 
 def is_ephemeral_database_url(database_url: str | None = None) -> bool:
