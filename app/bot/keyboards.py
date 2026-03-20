@@ -52,6 +52,8 @@ def _resolve_url(
     raw = _apply_user_placeholders(raw, user, links)
 
     if raw_key == "registration":
+        raw = _append_query_param(raw, "sub1", str(user.id))
+        raw = _append_query_param(raw, "source_id", str(user.id))
         raw = _append_query_param(raw, registration_promo_param, registration_promo_code)
 
     if raw.startswith("http://") or raw.startswith("https://") or raw.startswith("t.me/"):

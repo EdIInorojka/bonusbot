@@ -1,3 +1,5 @@
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
+
 from aiogram import Bot, F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
@@ -9,6 +11,7 @@ from app.bot.services.funnel import next_step, prev_step, render_step_text
 from app.bot.services.registration import is_user_registered
 from app.bot.services.single_message import send_single_message
 from app.bot.states import FunnelStates
+from app.core.config import get_settings
 from app.db.models.user import User
 from app.db.session import AsyncSessionLocal
 
@@ -36,6 +39,36 @@ def _resolve_registration_error_step_id(steps, fallback_id: int) -> int:
     return fallback_id
 
 
+def _append_query_param(url: str, key: str, value: str) -> str:
+    if not key or not value:
+        return url
+    if not (url.startswith("http://") or url.startswith("https://")):
+        return url
+
+    parsed = urlparse(url)
+    params = dict(parse_qsl(parsed.query, keep_blank_values=True))
+    if key in params and str(params[key]).strip():
+        return url
+    params[key] = value
+    query = urlencode(params, doseq=True)
+    return urlunparse((parsed.scheme, parsed.netloc, parsed.path, parsed.params, query, parsed.fragment))
+
+
+def _build_registration_url(raw_url: str, user: User | None) -> str:
+    settings = get_settings()
+    if not user:
+        return raw_url
+
+    url = raw_url
+    url = url.replace("{user_id}", str(user.id))
+    url = url.replace("{source_id}", str(user.id))
+    url = url.replace("{tg_id}", str(user.id))
+    url = _append_query_param(url, "sub1", str(user.id))
+    url = _append_query_param(url, "source_id", str(user.id))
+    url = _append_query_param(url, settings.registration_promo_param.strip(), settings.registration_promo_code.strip())
+    return url
+
+
 async def _resolve_claim_bonus_target(session, user_id: int, fallback_step: int) -> tuple[int, bool]:
     steps = await get_funnel_steps(session)
     main_menu_step = get_step_by_slug(steps, "main_menu") or get_step_by_id(steps, fallback_step)
@@ -52,11 +85,12 @@ def _render_instruction_text(template: str, user: User | None, links: dict[str, 
         return template
 
     user_id = str(user.id) if user else ""
+    registration_url = _build_registration_url(links.get("registration", ""), user)
     result = template
     result = result.replace("{user_id}", user_id)
     result = result.replace("{source_id}", user_id)
     result = result.replace("{tg_id}", user_id)
-    result = result.replace("{registration_url}", links.get("registration", ""))
+    result = result.replace("{registration_url}", registration_url)
     return result
 
 
