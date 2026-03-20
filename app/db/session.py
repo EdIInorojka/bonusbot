@@ -3,14 +3,18 @@
 from sqlalchemy import inspect, text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
-from app.core.config import get_settings
+from app.core.config import get_settings, normalize_database_url_for_async
 from app.db import models as _models  # noqa: F401
 from app.db.base import Base
 
 
 settings = get_settings()
 
-engine: AsyncEngine = create_async_engine(settings.database_url, echo=False, pool_pre_ping=True)
+engine: AsyncEngine = create_async_engine(
+    normalize_database_url_for_async(settings.database_url),
+    echo=False,
+    pool_pre_ping=True,
+)
 AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
 
 

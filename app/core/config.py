@@ -116,6 +116,20 @@ def is_local_dev() -> bool:
     return os.getenv("ENV", "dev").lower() in {"dev", "local"}
 
 
+def normalize_database_url_for_async(database_url: str | None = None) -> str:
+    settings = get_settings()
+    db_url = (database_url or settings.database_url or "").strip()
+    if not db_url:
+        return db_url
+
+    lower = db_url.lower()
+    if lower.startswith("postgres://"):
+        return "postgresql+asyncpg://" + db_url[len("postgres://") :]
+    if lower.startswith("postgresql://"):
+        return "postgresql+asyncpg://" + db_url[len("postgresql://") :]
+    return db_url
+
+
 def is_ephemeral_database_url(database_url: str | None = None) -> bool:
     settings = get_settings()
     db_url = (database_url or settings.database_url or "").strip().lower()
