@@ -5,10 +5,25 @@ from typing import Any
 
 DEFAULT_LINKS: dict[str, str] = {
     "channel": "https://t.me/your_channel",
-    "registration": "https://example.com/register",
+    "registration": "https://1wcous.life/casino/list?open=register&sub1={source_id}",
     "deposit": "https://example.com/deposit",
     "instruction": "https://example.com/instruction",
-    "instruction_message": "📘 <b>How to use the bot</b>\n\n1) Register using our link.\n2) Complete your first deposit.\n3) Follow funnel steps and claim bonuses.",
+    "instruction_message": (
+        "🤖<b>Бот основан и обучен на кластерной нейронной сети OpenAI!</b>\n"
+        "⚜️Для обучения бота было сыграно 🎰30,000 игр.\n\n"
+        "В настоящее время пользователи бота успешно генерируют 15-25% от своего капитала ежедневно!\n\n"
+        "Бот все еще проходит проверки и исправления! Точность бота составляет 92%!\n"
+        "Чтобы достичь максимальной прибыли, следуйте этой инструкции:\n\n"
+        "🟢 1. Зарегистрируйтесь в букмекерской конторе 1WIN: "
+        "<a href=\"{registration_url}\">1WIN</a>\n"
+        "[Если не открывается, воспользуйтесь VPN (Швеция).]\n"
+        "❗️Без регистрации и промокода доступ к сигналам не будет открыт❗️\n\n"
+        "🟢 2. Пополните баланс своего счета.\n"
+        "🟢 3. Перейдите в раздел игр 1win и выберите игру.\n"
+        "🟢 4. Установите количество ловушек на три. Это важно!\n"
+        "🟢 5. Запросите сигнал у бота и ставьте ставки в соответствии с сигналами от бота.\n"
+        "🟢 6. В случае неудачного сигнала рекомендуем удвоить (x²) вашу ставку."
+    ),
     "bonus": "https://example.com/bonus",
     "signal": "https://example.com/signal",
     "webapp": "",
@@ -18,91 +33,52 @@ DEFAULT_LINKS: dict[str, str] = {
 DEFAULT_FUNNEL_STEPS: list[dict[str, Any]] = [
     {
         "step": 1,
-        "title": "Primary Registration",
+        "title": "Подписка",
         "slug": "primary_registration",
-        "text": "Welcome!\n\nTo use the bot, subscribe to our channel first.",
+        "text": "Подпишитесь на канал, чтобы продолжить.",
         "photo": "",
         "buttons": [
-            {"text": "Subscribe", "action": "url", "value": "channel"},
-            {"text": "Check Subscription", "action": "callback", "value": "check_sub"},
+            {"text": "📢 Подписаться", "action": "url", "value": "channel"},
+            {"text": "✅ Проверить", "action": "callback", "value": "check_sub"},
         ],
     },
     {
         "step": 2,
-        "title": "Main Menu",
+        "title": "Главное меню",
         "slug": "main_menu",
-        "text": "Main Menu\n\nWhat can this bot do?\n🎁 Claim bonuses every day\n▶ Follow the steps to unlock rewards",
+        "text": "Главное меню\n\nВыберите действие:",
         "photo": "",
         "buttons": [
-            {"text": "📱 Register", "action": "url", "value": "registration"},
-            {"text": "📘 Guide", "action": "callback", "value": "instruction"},
-            {"text": "🎁 Claim Bonus", "action": "callback", "value": "claim_bonus"},
+            {"text": "🧩 Регистрация", "action": "url", "value": "registration"},
+            {"text": "📘 Инструкция", "action": "callback", "value": "instruction"},
+            {"text": "🎁 Получить бонус", "action": "callback", "value": "claim_bonus"},
         ],
     },
     {
         "step": 3,
-        "title": "Registration Error",
-        "slug": "registration_error",
-        "text": "Registration callback is not received yet.\n\nPlease register first and return to main menu.",
+        "title": "Получение бонуса",
+        "slug": "bonus_claim",
+        "text": "✅ Регистрация подтверждена!\n\nНажмите кнопку ниже, чтобы получить бонус.",
         "photo": "",
         "buttons": [
-            {"text": "🧩 Register Now", "action": "url", "value": "registration"},
-            {"text": "⬅ Back to Main Menu", "action": "next", "value": "2"},
+            {"text": "🎁 Получить бонус", "action": "url", "value": "bonus"},
+            {"text": "🎰 Запустить слот", "action": "webapp", "value": "webapp"},
+            {"text": "⬅️ Главное меню", "action": "next", "value": "2"},
         ],
     },
     {
         "step": 4,
-        "title": "First Deposit",
-        "slug": "first_deposit",
-        "text": "Registration completed!\n\nStep 2: make your first deposit.\n\nA higher deposit gives you a higher level and more high-probability signals.\n\nAfter the first deposit, you will receive an automatic update in the bot.",
+        "title": "Ошибка регистрации",
+        "slug": "registration_error",
+        "text": (
+            "⚠️ Ошибка: Регистрация не пройдена!\n\n"
+            "✦ При регистрации обязательно вводите промокод - 779931\n\n"
+            "● После завершения регистрации, Вам автоматически придет уведомление в бота."
+        ),
         "photo": "",
         "buttons": [
-            {"text": "💸 Make Deposit", "action": "url", "value": "deposit"},
-            {"text": "⬅ Back to Main Menu", "action": "next", "value": "2"},
-        ],
-    },
-    {
-        "step": 5,
-        "title": "Bonus Claim",
-        "slug": "bonus_claim",
-        "text": "Claim your bonuses right now.\n\nYou already got +70 free spins on multiple slots, and we also unlock a crypto giveaway for you.\n\nGet from 0.5 USDT up to 1 BTC.",
-        "photo": "",
-        "buttons": [
-            {"text": "👉 Claim 70 FP", "action": "url", "value": "bonus"},
-            {"text": "🎁 Claim Crypto Bonus", "action": "next", "value": "6"},
-        ],
-    },
-    {
-        "step": 6,
-        "title": "Crypto Bonus",
-        "slug": "crypto_bonus",
-        "text": "You won 1 USDT, and this is just the beginning.\n\nClaim 1 USDT: https://t.me/huntzbtc/coin/55466\n\nSpin the free roulette and unlock even more bonuses.",
-        "photo": "",
-        "buttons": [
-            {"text": "🎁 Open Mega Bonus", "action": "next", "value": "7"},
-        ],
-    },
-    {
-        "step": 7,
-        "title": "Mega Slot Intro",
-        "slug": "mega_slot_intro",
-        "text": "Final stage unlocked.\n\nMega bonus is available now. Possible rewards:\n\n🍒 +5 spins\n🍒 Deposit bonus up to 32,000₽\n🍒 Voucher up to 70,000₽\n🍒 0.3 BTC\n🍒 500 FS",
-        "photo": "",
-        "buttons": [
-            {"text": "🎰 Launch Slot", "action": "webapp", "value": "webapp"},
-            {"text": "📣 Share Link", "action": "share", "value": "Join and claim a bonus: {link}"},
-            {"text": "🚀 LuckyJet Signals", "action": "url", "value": "signal"},
-        ],
-    },
-    {
-        "step": 8,
-        "title": "Post Win",
-        "slug": "post_win",
-        "text": "Mega bonus is now active for you.\n\nClaim it instantly and continue the flow to increase your rewards.",
-        "photo": "",
-        "buttons": [
-            {"text": "👇 Claim Mega Bonus", "action": "webapp", "value": "webapp"},
-            {"text": "💸 Deposit and Boost Bonus", "action": "url", "value": "deposit"},
+            {"text": "🧩 Зарегистрироваться", "action": "url", "value": "registration"},
+            {"text": "🏠 Главное меню", "action": "next", "value": "2"},
         ],
     },
 ]

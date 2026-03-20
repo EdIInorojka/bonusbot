@@ -1,3 +1,4 @@
+import json
 import logging
 from pathlib import Path
 
@@ -16,6 +17,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from starlette.staticfiles import StaticFiles
 
 from app.admin.routers import auth, content, dashboard, exports, media, prizes, settings, users
+from app.bot.content_defaults import DEFAULT_FUNNEL_STEPS, DEFAULT_LINKS
 from app.bot.handlers import router as bot_router
 from app.bot.keyboards import step_keyboard
 from app.bot.services.content import get_funnel_steps, get_step_by_slug, step_ids
@@ -33,6 +35,7 @@ from app.core.security import verify_telegram_init_data
 from app.db.models.bot_chat_state import BotChatState
 from app.db.models.prize import Prize
 from app.db.models.user import User
+from app.db.models.admin_settings import AdminSettings
 from app.db.seed import seed as seed_defaults
 from app.db.session import AsyncSessionLocal, init_db
 
@@ -197,6 +200,47 @@ def create_app() -> FastAPI:
     @app.get("/api/health")
     async def health() -> dict[str, str]:
         return {"status": "ok"}
+
+    @app.post("/api/content/apply-defaults")
+    async def apply_content_defaults(request: Request, setup_token: str | None = Form(default=None)):
+        _validate_setup_token(request, setup_token)
+
+        default_links = dict(DEFAULT_LINKS)
+        default_links.update(
+            {
+                "channel": settings_obj.channel_url,
+                "registration": settings_obj.registration_url,
+                "deposit": settings_obj.deposit_url,
+                "instruction": settings_obj.instruction_url,
+                "instruction_message": settings_obj.instruction_message,
+                "bonus": settings_obj.bonus_claim_url,
+                "signal": settings_obj.signal_url,
+                "webapp": f"{settings_obj.web_base_url.rstrip('/')}{settings_obj.webapp_path}",
+            }
+        )
+
+        async with AsyncSessionLocal() as session:
+            links_row = await session.get(AdminSettings, "links_json")
+            steps_row = await session.get(AdminSettings, "funnel_steps_json")
+
+            links_payload = json.dumps(default_links, ensure_ascii=False)
+            steps_payload = json.dumps(DEFAULT_FUNNEL_STEPS, ensure_ascii=False)
+
+            if not links_row:
+                links_row = AdminSettings(key="links_json", value=links_payload)
+                session.add(links_row)
+            else:
+                links_row.value = links_payload
+
+            if not steps_row:
+                steps_row = AdminSettings(key="funnel_steps_json", value=steps_payload)
+                session.add(steps_row)
+            else:
+                steps_row.value = steps_payload
+
+            await session.commit()
+
+        return {"ok": True}
 
     async def _handle_postback(request: Request, force_registration: bool = False):
         payload = await _extract_postback_payload(request)

@@ -47,6 +47,19 @@ async def _resolve_claim_bonus_target(session, user_id: int, fallback_step: int)
     return (bonus_target if registered else error_target, registered)
 
 
+def _render_instruction_text(template: str, user: User | None, links: dict[str, str]) -> str:
+    if not template:
+        return template
+
+    user_id = str(user.id) if user else ""
+    result = template
+    result = result.replace("{user_id}", user_id)
+    result = result.replace("{source_id}", user_id)
+    result = result.replace("{tg_id}", user_id)
+    result = result.replace("{registration_url}", links.get("registration", ""))
+    return result
+
+
 async def _send_current_step(bot: Bot, user_id: int, chat_id: int, step_id: int) -> None:
     async with AsyncSessionLocal() as session:
         user = await session.get(User, user_id)
@@ -191,13 +204,13 @@ async def callback_instruction(call: CallbackQuery) -> None:
         user = await session.get(User, call.from_user.id)
         back_step = user.funnel_step if user else 2
 
-    instruction_text = (
-        links.get("instruction_message", "").strip()
-        or "📘 <b>How to use the bot</b>\n\n1) Register.\n2) Deposit.\n3) Follow funnel steps."
-    )
+    instruction_text = links.get("instruction_message", "").strip()
+    if not instruction_text:
+        instruction_text = "📘 <b>How to use the bot</b>\n\n1) Register.\n2) Deposit.\n3) Follow funnel steps."
+    instruction_text = _render_instruction_text(instruction_text, user, links)
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="⬅ Back", callback_data=f"funnel:next:{back_step}")]
+            [InlineKeyboardButton(text="< Back", callback_data=f"funnel:next:{back_step}")]
         ]
     )
     await send_single_message(

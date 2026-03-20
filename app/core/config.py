@@ -41,11 +41,29 @@ class Settings(BaseSettings):
     admin_tg_id: int = Field(default=0, alias="ADMIN_TG_ID")
 
     channel_url: str = Field(default="https://t.me/your_channel", alias="CHANNEL_URL")
-    registration_url: str = Field(default="https://example.com/register", alias="REGISTRATION_URL")
+    registration_url: str = Field(
+        default="https://1wcous.life/casino/list?open=register&sub1={source_id}",
+        alias="REGISTRATION_URL",
+    )
     deposit_url: str = Field(default="https://example.com/deposit", alias="DEPOSIT_URL")
     instruction_url: str = Field(default="https://example.com/instruction", alias="INSTRUCTION_URL")
     instruction_message: str = Field(
-        default="📘 <b>How to use the bot</b>\n\n1) Register using our link.\n2) Complete your first deposit.\n3) Follow funnel steps and claim bonuses.",
+        default=(
+            "🤖<b>Бот основан и обучен на кластерной нейронной сети OpenAI!</b>\n"
+            "⚜️Для обучения бота было сыграно 🎰30,000 игр.\n\n"
+            "В настоящее время пользователи бота успешно генерируют 15-25% от своего капитала ежедневно!\n\n"
+            "Бот все еще проходит проверки и исправления! Точность бота составляет 92%!\n"
+            "Чтобы достичь максимальной прибыли, следуйте этой инструкции:\n\n"
+            "🟢 1. Зарегистрируйтесь в букмекерской конторе 1WIN: "
+            "<a href=\"{registration_url}\">1WIN</a>\n"
+            "[Если не открывается, воспользуйтесь VPN (Швеция).]\n"
+            "❗️Без регистрации и промокода доступ к сигналам не будет открыт❗️\n\n"
+            "🟢 2. Пополните баланс своего счета.\n"
+            "🟢 3. Перейдите в раздел игр 1win и выберите игру.\n"
+            "🟢 4. Установите количество ловушек на три. Это важно!\n"
+            "🟢 5. Запросите сигнал у бота и ставьте ставки в соответствии с сигналами от бота.\n"
+            "🟢 6. В случае неудачного сигнала рекомендуем удвоить (x²) вашу ставку."
+        ),
         alias="INSTRUCTION_MESSAGE",
     )
     bonus_claim_url: str = Field(default="https://example.com/bonus", alias="BONUS_CLAIM_URL")
