@@ -16,7 +16,7 @@ from sqlalchemy import select
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.staticfiles import StaticFiles
 
-from app.admin.routers import auth, content, dashboard, exports, media, prizes, settings, users
+from app.admin.routers import auth, content, dashboard, media, settings
 from app.bot.content_defaults import DEFAULT_FUNNEL_STEPS, DEFAULT_LINKS
 from app.bot.handlers import router as bot_router
 from app.bot.keyboards import step_keyboard
@@ -24,8 +24,11 @@ from app.bot.services.content import get_funnel_steps, get_step_by_slug, step_id
 from app.bot.services.funnel import render_step_text
 from app.bot.services.registration import (
     extract_event_name,
+    extract_amount,
     extract_source_user_id,
+    is_first_deposit_event,
     is_registration_event,
+    mark_first_deposit,
     mark_user_registered,
 )
 from app.bot.services.single_message import send_single_message
@@ -37,7 +40,7 @@ from app.db.models.prize import Prize
 from app.db.models.user import User
 from app.db.models.admin_settings import AdminSettings
 from app.db.seed import seed as seed_defaults
-from app.db.session import AsyncSessionLocal, init_db
+from app.db.session import AsyncSessionLocal, ensure_user_conversion_columns, init_db
 
 
 settings_obj = get_settings()
@@ -134,17 +137,15 @@ def create_app() -> FastAPI:
 
     app.include_router(auth.router)
     app.include_router(dashboard.router)
-    app.include_router(prizes.router)
     app.include_router(settings.router)
     app.include_router(content.router)
     app.include_router(media.router)
-    app.include_router(users.router)
-    app.include_router(exports.router)
 
     @app.on_event("startup")
     async def startup() -> None:
         try:
             await init_db()
+            await ensure_user_conversion_columns()
             await seed_defaults()
         except Exception:
             logging.exception("Failed to initialize database")
@@ -242,7 +243,11 @@ def create_app() -> FastAPI:
 
         return {"ok": True}
 
-    async def _handle_postback(request: Request, force_registration: bool = False):
+    async def _handle_postback(
+        request: Request,
+        force_registration: bool = False,
+        force_first_deposit: bool = False,
+    ):
         payload = await _extract_postback_payload(request)
         _validate_postback_secret(request, payload)
 
@@ -252,6 +257,8 @@ def create_app() -> FastAPI:
             raise HTTPException(status_code=400, detail="source_id/user_id is required")
 
         registration_event = force_registration or is_registration_event(event_name)
+        first_deposit_event = force_first_deposit or is_first_deposit_event(event_name)
+        deposit_amount = extract_amount(payload)
 
         sent_to_user = False
         target_step_id: int | None = None
@@ -293,11 +300,16 @@ def create_app() -> FastAPI:
                     )
                     sent_to_user = True
 
+            if first_deposit_event:
+                await mark_first_deposit(session, user.id, event_name or "first_deposit", payload)
+
             await session.commit()
 
         return {
             "ok": True,
             "registration_event": registration_event,
+            "first_deposit_event": first_deposit_event,
+            "first_deposit_amount": deposit_amount,
             "source_user_id": source_user_id,
             "event_name": event_name,
             "target_step": target_step_id,
@@ -306,11 +318,15 @@ def create_app() -> FastAPI:
 
     @app.api_route(_normalized_postback_path(), methods=["GET", "POST"])
     async def postback_event(request: Request):
-        return await _handle_postback(request, force_registration=False)
+        return await _handle_postback(request, force_registration=False, force_first_deposit=False)
 
     @app.api_route("/api/postback/registration", methods=["GET", "POST"])
     async def postback_registration(request: Request):
-        return await _handle_postback(request, force_registration=True)
+        return await _handle_postback(request, force_registration=True, force_first_deposit=False)
+
+    @app.api_route("/api/postback/first-deposit", methods=["GET", "POST"])
+    async def postback_first_deposit(request: Request):
+        return await _handle_postback(request, force_registration=False, force_first_deposit=True)
 
     @app.post(_normalized_webhook_path())
     async def telegram_webhook(request: Request):

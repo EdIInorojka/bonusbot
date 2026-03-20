@@ -1,37 +1,45 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% block title %}Dashboard{% endblock %}
 {% block content %}
-<h1>Статистика воронки</h1>
+<h1>Новые пользователи и конверсии</h1>
 <div class="grid stats">
-  <article><h3>Пользователи</h3><p>{{ users_count }}</p></article>
-  <article><h3>Рефералы</h3><p>{{ referrals_count }}</p></article>
-  <article><h3>Спины</h3><p>{{ spins_count }}</p></article>
-  <article><h3>Выигрыши</h3><p>{{ wins_count }}</p></article>
-  <article><h3>Выдано</h3><p>{{ paid_total }}</p></article>
+  <article><h3>Всего пользователей</h3><p>{{ users_count }}</p></article>
+  <article><h3>Новые за 24ч</h3><p>{{ new_users_24h }}</p></article>
+  <article><h3>С регистрацией</h3><p>{{ registered_count }}</p></article>
+  <article><h3>С первым депозитом</h3><p>{{ first_deposit_count }}</p></article>
 </div>
 
-<h2>Рефералы по уровням</h2>
+<h2>Пользователи бота</h2>
 <table>
-  <thead><tr><th>Уровень</th><th>Количество</th></tr></thead>
-  <tbody>
-    {% for level in [1,2,3,4,5] %}
-    <tr><td>{{ level }}</td><td>{{ levels.get(level, 0) }}</td></tr>
-    {% endfor %}
-  </tbody>
-</table>
-
-<h2>Последние спины</h2>
-<table>
-  <thead><tr><th>ID</th><th>User</th><th>Win</th><th>Prize</th><th>Value</th><th>Дата</th></tr></thead>
-  <tbody>
-  {% for spin in recent_spins %}
+  <thead>
     <tr>
-      <td>{{ spin.id }}</td>
-      <td>{{ spin.user_id }}</td>
-      <td>{{ 'Да' if spin.won else 'Нет' }}</td>
-      <td>{{ spin.prize_id or '-' }}</td>
-      <td>{{ spin.reward_value }}</td>
-      <td>{{ spin.created_at }}</td>
+      <th>User ID</th>
+      <th>Username</th>
+      <th>Имя</th>
+      <th>Новый</th>
+      <th>Регистрация</th>
+      <th>Первый депозит</th>
+      <th>Сумма</th>
+      <th>Создан</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for row in users_view %}
+    <tr>
+      <td>{{ row.id }}</td>
+      <td>{{ row.username or "-" }}</td>
+      <td>{{ row.name }}</td>
+      <td>{{ "Да" if row.is_new else "Нет" }}</td>
+      <td>
+        {{ "Да" if row.is_registered else "Нет" }}
+        {% if row.registration_at %}<br><small>{{ row.registration_at }}</small>{% endif %}
+      </td>
+      <td>
+        {{ "Да" if row.has_first_deposit else "Нет" }}
+        {% if row.first_deposit_at %}<br><small>{{ row.first_deposit_at }}</small>{% endif %}
+      </td>
+      <td>{{ row.first_deposit_amount if row.first_deposit_amount is not none else "-" }}</td>
+      <td>{{ row.created_at }}</td>
     </tr>
   {% endfor %}
   </tbody>

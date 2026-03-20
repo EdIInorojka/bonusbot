@@ -1,9 +1,10 @@
 ﻿from collections.abc import AsyncIterator
 
+from sqlalchemy import inspect, text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
-from app.db import models as _models  # noqa: F401
 from app.core.config import get_settings
+from app.db import models as _models  # noqa: F401
 from app.db.base import Base
 
 
@@ -21,3 +22,22 @@ async def get_db_session() -> AsyncIterator[AsyncSession]:
 async def init_db() -> None:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+
+async def ensure_user_conversion_columns() -> None:
+    async with engine.begin() as conn:
+        existing_columns = await conn.run_sync(
+            lambda sync_conn: {c["name"] for c in inspect(sync_conn).get_columns("user_conversions")}
+        )
+
+        if "has_first_deposit" not in existing_columns:
+            await conn.execute(
+                text(
+                    "ALTER TABLE user_conversions "
+                    "ADD COLUMN has_first_deposit BOOLEAN NOT NULL DEFAULT FALSE"
+                )
+            )
+        if "first_deposit_confirmed_at" not in existing_columns:
+            await conn.execute(text("ALTER TABLE user_conversions ADD COLUMN first_deposit_confirmed_at TIMESTAMP"))
+        if "first_deposit_amount" not in existing_columns:
+            await conn.execute(text("ALTER TABLE user_conversions ADD COLUMN first_deposit_amount DOUBLE PRECISION"))
