@@ -132,12 +132,14 @@ async def mark_first_deposit(
 ) -> UserConversion:
     row = await _get_or_create_conversion(session, user_id)
     now = datetime.now(timezone.utc)
-
-    row.has_first_deposit = True
-    row.first_deposit_confirmed_at = now
     amount = extract_amount(payload)
-    if amount is not None:
-        row.first_deposit_amount = amount
+
+    # Keep first-deposit fields immutable after first confirmation.
+    if not row.has_first_deposit:
+        row.has_first_deposit = True
+        row.first_deposit_confirmed_at = now
+        if amount is not None:
+            row.first_deposit_amount = amount
 
     row.last_event_name = event_name[:128] if event_name else "first_deposit"
     row.payload_json = json.dumps(payload, ensure_ascii=False)

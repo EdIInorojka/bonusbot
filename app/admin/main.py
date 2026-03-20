@@ -142,6 +142,33 @@ async def _resolve_postback_user_id(
         if user:
             return user.id, f"payload:{key}"
 
+    # Resolve via historical payload mapping when tracker sends external account id.
+    if extracted_source_id is not None:
+        src = str(extracted_source_id)
+        source_patterns = [
+            f"\"source_id\": \"{src}\"",
+            f"\"source_id\":\"{src}\"",
+            f"\"user_id\": \"{src}\"",
+            f"\"user_id\":\"{src}\"",
+        ]
+        payload_match_rows = (
+            await session.execute(
+                select(UserConversion.user_id)
+                .where(
+                    or_(
+                        *[
+                            UserConversion.payload_json.like(f"%{pattern}%")
+                            for pattern in source_patterns
+                        ]
+                    )
+                )
+                .order_by(UserConversion.updated_at.desc())
+                .limit(2)
+            )
+        ).scalars().all()
+        if len(payload_match_rows) == 1:
+            return payload_match_rows[0], "payload_history:source_id"
+
     # Fallback for trackers that only send external account id in source_id.
     # We map only when there is exactly one recent unresolved Telegram user.
     cutoff = datetime.now(timezone.utc) - timedelta(hours=12)
