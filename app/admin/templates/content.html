@@ -126,7 +126,7 @@
 
 <section class="card">
   <h2>Добавить новый шаг</h2>
-  <form method="post" action="/admin/content/steps/save" class="step-form" id="new-step-form">
+  <form method="post" action="/admin/content/steps/save" class="step-form" id="new-step-form" data-autosave="1">
     <label>Логическое имя шага (title)
       <input type="text" name="title" value="New Step" required>
     </label>
@@ -267,6 +267,12 @@
 
       if (!response.ok || payload.ok === false) {
         throw new Error(payload.message || 'Ошибка сохранения');
+      }
+
+      if (form.id === 'new-step-form') {
+        setAutosaveStatus('Новый шаг создан. Обновляю список...', 'ok');
+        window.location.reload();
+        return;
       }
 
       const now = new Date();
