@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% block title %}Media{% endblock %}
 {% block content %}
 <h1>Медиатека</h1>
@@ -7,17 +7,25 @@
 {% if error %}<div class="notice err">{{ error }}</div>{% endif %}
 
 <section class="card">
+  <h2>Хранилище изображений</h2>
+  {% if blob_enabled %}
+  <p class="muted">Активен режим <b>Vercel Blob</b>. Новые картинки загружаются в Blob и сохраняются как URL.</p>
+  {% else %}
+  <p class="muted">Blob token не задан. Новые картинки загружаются в Telegram и сохраняются как <code>file_id</code>.</p>
+  {% endif %}
+</section>
+
+<section class="card">
   <h2>Загрузить изображение</h2>
   <form method="post" action="/admin/media/upload" enctype="multipart/form-data" class="grid form-grid">
     <label>Название
-      <input type="text" name="label" placeholder="Например: step7 main banner">
+      <input type="text" name="label" placeholder="Например: main menu banner">
     </label>
     <label>Файл
       <input type="file" name="image" accept="image/*" required>
     </label>
-    <button type="submit">Загрузить и сохранить file_id</button>
+    <button type="submit">Загрузить изображение</button>
   </form>
-  <p class="muted">Файл загружается в Telegram и сохраняется как `file_id` для поля `photo` в шагах.</p>
 </section>
 
 <section class="card">
@@ -47,8 +55,8 @@
 </section>
 
 <section class="card">
-  <h2>Сохранённые картинки</h2>
-  <p class="muted">Нажми `Copy`, затем вставь в поле `photo` нужного шага в <a href="/admin/content">контенте</a>.</p>
+  <h2>Сохраненные картинки</h2>
+  <p class="muted">Нажми `Copy`, затем вставь значение в поле `photo` нужного шага в <a href="/admin/content">контенте</a>.</p>
   <table>
     <thead>
       <tr>

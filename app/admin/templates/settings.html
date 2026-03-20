@@ -2,16 +2,55 @@
 {% block title %}Settings{% endblock %}
 {% block content %}
 <h1>Глобальные настройки</h1>
-<form method="post" action="/admin/settings" class="settings-form">
-  <label>Global win-rate (0..1)
-    <input type="number" min="0" max="1" step="0.01" name="global_win_rate" value="{{ data['global_win_rate'] }}" required>
-  </label>
-  <label>Cooldown сек
-    <input type="number" min="30" name="spin_cooldown_seconds" value="{{ data['spin_cooldown_seconds'] }}" required>
-  </label>
-  <label>Макс спинов / день / юзер
-    <input type="number" min="1" name="max_daily_spins_per_user" value="{{ data['max_daily_spins_per_user'] }}" required>
-  </label>
-  <button type="submit">Сохранить</button>
-</form>
+
+{% if msg %}<div class="notice ok">{{ msg }}</div>{% endif %}
+{% if error %}<div class="notice err">{{ error }}</div>{% endif %}
+
+<section class="card">
+  <h2>Хранилище</h2>
+  <p><b>DATABASE_URL:</b> <code>{{ db_url_masked }}</code></p>
+  {% if db_is_ephemeral %}
+  <p class="notice err">Текущая БД временная (например sqlite в /tmp). На Vercel данные будут теряться.</p>
+  {% else %}
+  <p class="notice ok">Постоянная БД подключена. Данные пользователей и контента не сбрасываются между деплоями.</p>
+  {% endif %}
+
+  {% if blob_enabled %}
+  <p class="notice ok">Vercel Blob подключен: изображения можно хранить как постоянные URL.</p>
+  {% else %}
+  <p class="notice err">Vercel Blob не подключен. Добавь <code>BLOB_READ_WRITE_TOKEN</code> в переменные окружения.</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>Параметры игры</h2>
+  <form method="post" action="/admin/settings" class="settings-form grid form-grid">
+    <label>Global win-rate (0..1)
+      <input type="number" min="0" max="1" step="0.01" name="global_win_rate" value="{{ data['global_win_rate'] }}" required>
+    </label>
+    <label>Cooldown (сек)
+      <input type="number" min="30" name="spin_cooldown_seconds" value="{{ data['spin_cooldown_seconds'] }}" required>
+    </label>
+    <label>Макс спинов / день / пользователь
+      <input type="number" min="1" name="max_daily_spins_per_user" value="{{ data['max_daily_spins_per_user'] }}" required>
+    </label>
+    <button type="submit">Сохранить</button>
+  </form>
+</section>
+
+<section class="card">
+  <h2>Очистка данных</h2>
+  <p class="muted">Действия ниже удаляют данные сразу и без возможности отката.</p>
+  <div class="actions" style="flex-wrap:wrap;">
+    <form method="post" action="/admin/settings/cleanup/users" onsubmit="return confirm('Удалить всех пользователей, рефералов, конверсии и историю спинов?')">
+      <button type="submit" class="danger">Очистить пользователей</button>
+    </form>
+    <form method="post" action="/admin/settings/cleanup/content" onsubmit="return confirm('Удалить шаги, ссылки и медиатеку? Будут восстановлены дефолтные шаги.')">
+      <button type="submit" class="danger">Очистить контент</button>
+    </form>
+    <form method="post" action="/admin/settings/cleanup/all" onsubmit="return confirm('Полная очистка: пользователи + контент. Продолжить?')">
+      <button type="submit" class="danger">Полная очистка</button>
+    </form>
+  </div>
+</section>
 {% endblock %}

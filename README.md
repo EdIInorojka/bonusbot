@@ -1,34 +1,42 @@
-# Telegram Funnel Bot (Vercel Only)
+﻿# Telegram Funnel Bot (Vercel)
 
-FastAPI admin + Telegram WebApp + aiogram webhook.
+FastAPI admin + aiogram webhook + Telegram WebApp.
 
-## 1) Get VERCEL_TOKEN
+## 1) Get `VERCEL_TOKEN`
 
 1. Open https://vercel.com/account/tokens
 2. Click `Create Token`
 3. Copy token
 
-PowerShell:
-
 ```powershell
 $env:VERCEL_TOKEN="your_token_here"
 ```
 
-## 2) ENV
+## 2) Configure persistent storage
 
-Copy `.env.example` to `.env`.
+For stable work on Vercel use:
 
-Quick test (no external services):
+- `Postgres` for users/settings/steps/links/texts
+- `Vercel Blob` for images
 
-- `DATABASE_URL=sqlite+aiosqlite:////tmp/bonuska.db`
-- `REDIS_URL=`
+### Postgres
 
-Production:
+Connect any Vercel-supported Postgres provider (Neon/Supabase/Aurora) and set:
 
-- `DATABASE_URL=postgresql+asyncpg://...`
-- `REDIS_URL=redis://...`
+- `DATABASE_URL=postgresql+asyncpg://USER:PASSWORD@HOST:5432/DB_NAME`
 
-Required:
+Do not use `sqlite` in `/tmp` for production.
+
+### Blob
+
+Create Blob store in Vercel and set:
+
+- `BLOB_READ_WRITE_TOKEN=...`
+- `BLOB_PREFIX=media` (optional folder prefix)
+
+## 3) ENV
+
+Copy `.env.example` to `.env` and fill required values:
 
 - `BOT_TOKEN`
 - `BOT_USERNAME`
@@ -40,22 +48,24 @@ Required:
 - `ADMIN_USERNAME`
 - `ADMIN_PASSWORD`
 - `ADMIN_SESSION_SECRET`
+- `DATABASE_URL` (Postgres)
 
-Optional for guide-as-message:
+Optional:
 
-- `INSTRUCTION_MESSAGE` (HTML is supported)
+- `REDIS_URL`
 - `POSTBACK_PATH` (default: `/api/postback/event`)
-- `POSTBACK_SECRET` (recommended)
+- `POSTBACK_SECRET`
 - `REGISTRATION_PROMO_CODE` (default: `HUNTCASH`)
 - `REGISTRATION_PROMO_PARAM` (default: `promocode`)
+- `INSTRUCTION_MESSAGE` (Telegram HTML)
 
-## 3) Deploy
+## 4) Deploy
 
 ```powershell
 npx vercel --prod --yes --token $env:VERCEL_TOKEN
 ```
 
-## 4) Set webhook
+## 5) Set webhook
 
 ```powershell
 Invoke-WebRequest -Method POST `
@@ -69,25 +79,27 @@ Check:
 Invoke-WebRequest -Uri "https://<project>.vercel.app/api/telegram/webhook-info?setup_token=<WEBHOOK_SETUP_TOKEN>"
 ```
 
-## 5) Admin
+## 6) Admin
 
 - Login: `https://<project>.vercel.app/admin/login`
-- Content editor: `https://<project>.vercel.app/admin/content`
+- Content: `https://<project>.vercel.app/admin/content`
+- Media: `https://<project>.vercel.app/admin/media`
+- Settings: `https://<project>.vercel.app/admin/settings`
 
-You can edit texts, photos, buttons, links, subscription channel, and all funnel steps.
+In `Settings` you can:
 
-## 6) Registration callback (postback)
+- see if DB is persistent or ephemeral
+- clean users
+- clean content (links/steps/media)
+- run full cleanup
 
-Use one of these endpoints from your tracker:
+## 7) Registration callbacks (postback)
+
+Endpoints:
 
 - `https://<project>.vercel.app/api/postback/event`
-- `https://<project>.vercel.app/api/postback/registration` (always marks registration)
-
-Recommended payload fields:
-
-- `source_id` = Telegram user id
-- `event`/`event_name`/`hash_name` = registration event name
-- `secret` = `POSTBACK_SECRET` (if enabled)
+- `https://<project>.vercel.app/api/postback/registration`
+- `https://<project>.vercel.app/api/postback/first-deposit`
 
 Example:
 

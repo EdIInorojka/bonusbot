@@ -25,6 +25,8 @@ class Settings(BaseSettings):
         alias="DATABASE_URL",
     )
     redis_url: str = Field(default="", alias="REDIS_URL")
+    blob_read_write_token: str = Field(default="", alias="BLOB_READ_WRITE_TOKEN")
+    blob_prefix: str = Field(default="media", alias="BLOB_PREFIX")
 
     web_base_url: str = Field(default="http://localhost:8000", alias="WEB_BASE_URL")
     webapp_path: str = Field(default="/webapp", alias="WEBAPP_PATH")
@@ -112,4 +114,33 @@ def is_webhook_mode() -> bool:
 
 def is_local_dev() -> bool:
     return os.getenv("ENV", "dev").lower() in {"dev", "local"}
+
+
+def is_ephemeral_database_url(database_url: str | None = None) -> bool:
+    settings = get_settings()
+    db_url = (database_url or settings.database_url or "").strip().lower()
+    if not db_url:
+        return True
+
+    if db_url.startswith("sqlite"):
+        return ("/tmp/" in db_url) or (":memory:" in db_url)
+
+    return False
+
+
+def mask_database_url(database_url: str | None = None) -> str:
+    settings = get_settings()
+    db_url = (database_url or settings.database_url or "").strip()
+    if not db_url:
+        return "not-configured"
+
+    if "://" not in db_url:
+        return db_url
+
+    scheme, rest = db_url.split("://", 1)
+    if "@" not in rest:
+        return f"{scheme}://{rest}"
+
+    _, host_part = rest.rsplit("@", 1)
+    return f"{scheme}://***:***@{host_part}"
 
