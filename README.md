@@ -46,6 +46,8 @@ Optional for guide-as-message:
 - `INSTRUCTION_MESSAGE` (HTML is supported)
 - `POSTBACK_PATH` (default: `/api/postback/event`)
 - `POSTBACK_SECRET` (recommended)
+- `REGISTRATION_PROMO_CODE` (default: `HUNTCASH`)
+- `REGISTRATION_PROMO_PARAM` (default: `promocode`)
 
 ## 3) Deploy
 

@@ -1,12 +1,12 @@
-﻿from urllib.parse import quote_plus
+from urllib.parse import parse_qsl, quote_plus, urlencode, urlparse, urlunparse
 
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot.services.content import DynamicFunnelStep, get_links_config
 from app.bot.services.funnel import build_ref_link
+from app.core.config import get_settings
 from app.db.models.user import User
-
 
 
 def _apply_user_placeholders(raw: str, user: User, links: dict[str, str]) -> str:
@@ -25,16 +25,37 @@ def _apply_user_placeholders(raw: str, user: User, links: dict[str, str]) -> str
     return rendered
 
 
-def _resolve_url(value: str, links: dict[str, str], user: User) -> str:
-    raw = value.strip()
-    if raw in links:
-        raw = links[raw]
+def _append_query_param(url: str, key: str, value: str) -> str:
+    if not key or not value:
+        return url
+    if not (url.startswith("http://") or url.startswith("https://")):
+        return url
 
+    parsed = urlparse(url)
+    params = dict(parse_qsl(parsed.query, keep_blank_values=True))
+    if key in params and str(params[key]).strip():
+        return url
+    params[key] = value
+    query = urlencode(params, doseq=True)
+    return urlunparse((parsed.scheme, parsed.netloc, parsed.path, parsed.params, query, parsed.fragment))
+
+
+def _resolve_url(
+    value: str,
+    links: dict[str, str],
+    user: User,
+    registration_promo_param: str,
+    registration_promo_code: str,
+) -> str:
+    raw_key = value.strip()
+    raw = links.get(raw_key, raw_key)
     raw = _apply_user_placeholders(raw, user, links)
+
+    if raw_key == "registration":
+        raw = _append_query_param(raw, registration_promo_param, registration_promo_code)
 
     if raw.startswith("http://") or raw.startswith("https://") or raw.startswith("t.me/"):
         return raw
-
     return raw
 
 
@@ -45,13 +66,26 @@ async def step_keyboard(
     _step_ids: list[int],
 ) -> InlineKeyboardMarkup:
     links = await get_links_config(session)
+    settings = get_settings()
+    promo_param = settings.registration_promo_param.strip()
+    promo_code = settings.registration_promo_code.strip()
+
     rows: list[list[InlineKeyboardButton]] = []
 
     for button in step.buttons:
         if button.action == "url":
-            rows.append([InlineKeyboardButton(text=button.text, url=_resolve_url(button.value, links, user))])
+            rows.append(
+                [
+                    InlineKeyboardButton(
+                        text=button.text,
+                        url=_resolve_url(button.value, links, user, promo_param, promo_code),
+                    )
+                ]
+            )
         elif button.action == "webapp":
-            webapp_url = f"{_resolve_url(button.value, links, user)}?startapp={user.ref_code}"
+            webapp_url = _resolve_url(button.value, links, user, promo_param, promo_code)
+            separator = "&" if "?" in webapp_url else "?"
+            webapp_url = f"{webapp_url}{separator}startapp={user.ref_code}"
             rows.append([InlineKeyboardButton(text=button.text, web_app=WebAppInfo(url=webapp_url))])
         elif button.action == "callback":
             rows.append([InlineKeyboardButton(text=button.text, callback_data=f"funnel:{button.value}")])

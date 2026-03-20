@@ -45,6 +45,8 @@ class Settings(BaseSettings):
         default="https://1wcous.life/casino/list?open=register&sub1={source_id}",
         alias="REGISTRATION_URL",
     )
+    registration_promo_code: str = Field(default="HUNTCASH", alias="REGISTRATION_PROMO_CODE")
+    registration_promo_param: str = Field(default="promocode", alias="REGISTRATION_PROMO_PARAM")
     deposit_url: str = Field(default="https://example.com/deposit", alias="DEPOSIT_URL")
     instruction_url: str = Field(default="https://example.com/instruction", alias="INSTRUCTION_URL")
     instruction_message: str = Field(

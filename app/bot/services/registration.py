@@ -48,10 +48,10 @@ def extract_event_name(payload: dict[str, Any]) -> str:
 
 def extract_source_user_id(payload: dict[str, Any]) -> int | None:
     candidates = (
-        "source_id",
+        "sub1",
         "sub_id",
         "subid",
-        "sub1",
+        "source_id",
         "tg_id",
         "telegram_id",
         "user_id",
