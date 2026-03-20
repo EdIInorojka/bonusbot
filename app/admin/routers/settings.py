@@ -76,6 +76,16 @@ async def settings_page(
         data[key] = await _get_value(session, key)
 
     settings = get_settings()
+    blob_enabled = blob_is_enabled()
+    telegram_media_ready = bool(settings.bot_token.strip()) and settings.admin_tg_id > 0
+    media_storage_ok = blob_enabled or telegram_media_ready
+    if blob_enabled:
+        media_storage_mode = "blob"
+    elif telegram_media_ready:
+        media_storage_mode = "telegram_file_id"
+    else:
+        media_storage_mode = "not_configured"
+
     return templates.TemplateResponse(
         request,
         "settings.html",
@@ -84,7 +94,10 @@ async def settings_page(
             "data": data,
             "db_url_masked": mask_database_url(settings.database_url),
             "db_is_ephemeral": is_ephemeral_database_url(settings.database_url),
-            "blob_enabled": blob_is_enabled(),
+            "blob_enabled": blob_enabled,
+            "telegram_media_ready": telegram_media_ready,
+            "media_storage_ok": media_storage_ok,
+            "media_storage_mode": media_storage_mode,
             "msg": request.query_params.get("msg", ""),
             "error": request.query_params.get("error", ""),
         },

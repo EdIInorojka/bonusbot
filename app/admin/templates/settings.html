@@ -15,10 +15,14 @@
   <p class="notice ok">Постоянная БД подключена. Данные пользователей и контента не сбрасываются между деплоями.</p>
   {% endif %}
 
-  {% if blob_enabled %}
-  <p class="notice ok">Vercel Blob подключен: изображения можно хранить как постоянные URL.</p>
+  {% if media_storage_ok %}
+    {% if media_storage_mode == "blob" %}
+    <p class="notice ok">Vercel Blob подключен: изображения сохраняются как постоянные URL.</p>
+    {% elif media_storage_mode == "telegram_file_id" %}
+    <p class="notice ok">Blob не подключен, но активен режим Telegram <code>file_id</code>: изображения сохраняются и доступны в шагах.</p>
+    {% endif %}
   {% else %}
-  <p class="notice err">Vercel Blob не подключен. Добавь <code>BLOB_READ_WRITE_TOKEN</code> в переменные окружения.</p>
+  <p class="notice err">Хранилище картинок не настроено. Подключи Blob (<code>BLOB_READ_WRITE_TOKEN</code>) или укажи <code>BOT_TOKEN</code> и <code>ADMIN_TG_ID</code> для режима Telegram <code>file_id</code>.</p>
   {% endif %}
 </section>
 
