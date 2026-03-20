@@ -1,5 +1,6 @@
 import json
 import logging
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from aiogram import Bot, Dispatcher
@@ -12,7 +13,7 @@ from fastapi import FastAPI, Form, HTTPException, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from redis.asyncio import Redis
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.staticfiles import StaticFiles
 
@@ -39,6 +40,7 @@ from app.db.models.bot_chat_state import BotChatState
 from app.db.models.prize import Prize
 from app.db.models.user import User
 from app.db.models.admin_settings import AdminSettings
+from app.db.models.user_conversion import UserConversion
 from app.db.seed import seed as seed_defaults
 from app.db.session import AsyncSessionLocal, ensure_user_conversion_columns, init_db
 
@@ -109,6 +111,58 @@ def _resolve_postback_bonus_step(steps):
             return step
 
     return get_step_by_slug(steps, "main_menu") or steps[0]
+
+
+def _extract_int(payload: dict[str, str], key: str) -> int | None:
+    raw = str(payload.get(key, "")).strip()
+    if not raw:
+        return None
+    try:
+        return int(raw)
+    except ValueError:
+        return None
+
+
+async def _resolve_postback_user_id(
+    session,
+    payload: dict[str, str],
+    extracted_source_id: int | None,
+) -> tuple[int | None, str]:
+    if extracted_source_id is not None:
+        direct_user = await session.get(User, extracted_source_id)
+        if direct_user:
+            return direct_user.id, "direct"
+
+    preferred_keys = ("sub1", "sub_id", "subid", "source", "s1", "tg_id", "telegram_id", "user_id", "userid", "uid")
+    for key in preferred_keys:
+        candidate = _extract_int(payload, key)
+        if candidate is None:
+            continue
+        user = await session.get(User, candidate)
+        if user:
+            return user.id, f"payload:{key}"
+
+    # Fallback for trackers that only send external account id in source_id.
+    # We map only when there is exactly one recent unresolved Telegram user.
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=12)
+    unresolved_rows = (
+        await session.execute(
+            select(User.id)
+            .join(BotChatState, BotChatState.user_id == User.id)
+            .outerjoin(UserConversion, UserConversion.user_id == User.id)
+            .where(
+                User.created_at >= cutoff,
+                or_(UserConversion.user_id.is_(None), UserConversion.is_registered.is_(False)),
+            )
+            .order_by(BotChatState.updated_at.desc(), User.created_at.desc())
+            .limit(2)
+        )
+    ).scalars().all()
+
+    if len(unresolved_rows) == 1:
+        return unresolved_rows[0], "fallback:recent_single_unresolved"
+
+    return None, "unresolved"
 
 
 
@@ -252,9 +306,7 @@ def create_app() -> FastAPI:
         _validate_postback_secret(request, payload)
 
         event_name = extract_event_name(payload)
-        source_user_id = extract_source_user_id(payload)
-        if source_user_id is None:
-            raise HTTPException(status_code=400, detail="source_id/user_id is required")
+        extracted_source_id = extract_source_user_id(payload)
 
         registration_event = force_registration or is_registration_event(event_name)
         first_deposit_event = force_first_deposit or is_first_deposit_event(event_name)
@@ -262,21 +314,26 @@ def create_app() -> FastAPI:
 
         sent_to_user = False
         target_step_id: int | None = None
+        resolved_user_id: int | None = None
+        mapping_strategy = "unresolved"
         async with AsyncSessionLocal() as session:
-            user = await session.get(User, source_user_id)
-            if not user:
-                source_name = str(payload.get("source_name", "")).strip() or "User"
-                user = User(
-                    id=source_user_id,
-                    first_name=source_name[:128],
-                    last_name=None,
-                    username=None,
-                    language_code=None,
-                    ref_code=f"REF{source_user_id}",
-                    funnel_step=2,
+            resolved_user_id, mapping_strategy = await _resolve_postback_user_id(
+                session=session,
+                payload=payload,
+                extracted_source_id=extracted_source_id,
+            )
+            if resolved_user_id is None:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        "Cannot map postback to Telegram user. "
+                        "Send sub1/source_id with Telegram user id in postback URL."
+                    ),
                 )
-                session.add(user)
-                await session.flush()
+
+            user = await session.get(User, resolved_user_id)
+            if not user:
+                raise HTTPException(status_code=400, detail="Target Telegram user not found")
 
             if registration_event:
                 await mark_user_registered(session, user.id, event_name or "registration", payload)
@@ -310,7 +367,9 @@ def create_app() -> FastAPI:
             "registration_event": registration_event,
             "first_deposit_event": first_deposit_event,
             "first_deposit_amount": deposit_amount,
-            "source_user_id": source_user_id,
+            "source_user_id": extracted_source_id,
+            "resolved_user_id": resolved_user_id,
+            "mapping_strategy": mapping_strategy,
             "event_name": event_name,
             "target_step": target_step_id,
             "sent_to_user": sent_to_user,
