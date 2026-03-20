@@ -45,3 +45,5 @@ async def ensure_user_conversion_columns() -> None:
             await conn.execute(text("ALTER TABLE user_conversions ADD COLUMN first_deposit_confirmed_at TIMESTAMP"))
         if "first_deposit_amount" not in existing_columns:
             await conn.execute(text("ALTER TABLE user_conversions ADD COLUMN first_deposit_amount DOUBLE PRECISION"))
+        if "bonus_claimed_at" not in existing_columns:
+            await conn.execute(text("ALTER TABLE user_conversions ADD COLUMN bonus_claimed_at TIMESTAMP"))

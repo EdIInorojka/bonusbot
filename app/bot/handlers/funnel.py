@@ -8,7 +8,7 @@ from app.bot.handlers.start import is_subscribed
 from app.bot.keyboards import step_keyboard
 from app.bot.services.content import get_funnel_steps, get_links_config, get_step_by_id, get_step_by_slug, step_ids
 from app.bot.services.funnel import next_step, prev_step, render_step_text
-from app.bot.services.registration import is_user_registered
+from app.bot.services.registration import can_claim_bonus_today, is_user_registered, mark_bonus_claimed
 from app.bot.services.single_message import send_single_message
 from app.bot.states import FunnelStates
 from app.core.config import get_settings
@@ -173,20 +173,36 @@ async def callback_claim_bonus(call: CallbackQuery, state: FSMContext) -> None:
     if not call.from_user or not call.message:
         return
 
+    registered = False
+    can_claim_bonus = False
+    target = 2
     async with AsyncSessionLocal() as session:
         user = await session.get(User, call.from_user.id)
         if not user:
             await call.answer()
             return
 
+        steps = await get_funnel_steps(session)
+        main_menu_step = get_step_by_slug(steps, "main_menu") or get_step_by_id(steps, user.funnel_step)
         target, registered = await _resolve_claim_bonus_target(session, user.id, user.funnel_step)
+        if registered:
+            can_claim_bonus = await can_claim_bonus_today(session, user.id)
+            if can_claim_bonus:
+                await mark_bonus_claimed(session, user.id, event_name="bonus_claim")
+                await session.commit()
+            else:
+                target = main_menu_step.step
 
     await state.set_state(FunnelStates.in_funnel)
     await _send_current_step(call.bot, call.from_user.id, call.message.chat.id, target)
-    if registered:
+    if not registered:
+        await call.answer("Registration callback not received yet.", show_alert=True)
+        return
+
+    if can_claim_bonus:
         await call.answer()
     else:
-        await call.answer("Registration callback not received yet.", show_alert=True)
+        await call.answer("Bonus is available once per day. Try again tomorrow.", show_alert=True)
 
 
 @router.callback_query(F.data == "funnel:continue")

@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot.services.content import DynamicFunnelStep, get_links_config
 from app.bot.services.funnel import build_ref_link
+from app.bot.services.registration import is_user_registered
 from app.core.config import get_settings
 from app.db.models.user import User
 
@@ -72,9 +73,21 @@ async def step_keyboard(
     promo_param = settings.registration_promo_param.strip()
     promo_code = settings.registration_promo_code.strip()
 
+    buttons = step.buttons
+    if step.slug == "main_menu":
+        registered = await is_user_registered(session, user.id)
+        if registered:
+            preferred = tuple(
+                btn
+                for btn in step.buttons
+                if btn.action == "callback" and btn.value in {"instruction", "claim_bonus"}
+            )
+            if preferred:
+                buttons = preferred
+
     rows: list[list[InlineKeyboardButton]] = []
 
-    for button in step.buttons:
+    for button in buttons:
         if button.action == "url":
             rows.append(
                 [

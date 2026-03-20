@@ -146,3 +146,38 @@ async def mark_first_deposit(
 
     await session.flush()
     return row
+
+
+def _to_utc(dt: datetime | None) -> datetime | None:
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
+async def can_claim_bonus_today(session: AsyncSession, user_id: int) -> bool:
+    row = await session.get(UserConversion, user_id)
+    if not row or not row.bonus_claimed_at:
+        return True
+
+    claimed_at = _to_utc(row.bonus_claimed_at)
+    now_utc = datetime.now(timezone.utc)
+    return claimed_at.date() < now_utc.date()
+
+
+async def mark_bonus_claimed(
+    session: AsyncSession,
+    user_id: int,
+    event_name: str = "bonus_claim",
+) -> UserConversion:
+    row = await _get_or_create_conversion(session, user_id)
+    now = datetime.now(timezone.utc)
+
+    row.bonus_claimed_at = now
+    row.last_event_name = event_name[:128]
+    row.last_seen_at = now
+    row.event_count = int(row.event_count or 0) + 1
+
+    await session.flush()
+    return row
