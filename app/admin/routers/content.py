@@ -1,9 +1,9 @@
-import json
+﻿import json
 import re
 from urllib.parse import quote_plus
 
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -50,6 +50,22 @@ def _buttons_to_json(step: DynamicFunnelStep) -> str:
     return json.dumps(payload, ensure_ascii=False, indent=2)
 
 
+def _is_ajax(request: Request) -> bool:
+    return request.headers.get("x-requested-with", "").lower() == "xmlhttprequest"
+
+
+def _response_ok(request: Request, message: str) -> JSONResponse | RedirectResponse:
+    if _is_ajax(request):
+        return JSONResponse({"ok": True, "message": message})
+    return RedirectResponse(url=f"/admin/content?msg={quote_plus(message)}", status_code=302)
+
+
+def _response_error(request: Request, message: str, status_code: int = 400) -> JSONResponse | RedirectResponse:
+    if _is_ajax(request):
+        return JSONResponse({"ok": False, "message": message}, status_code=status_code)
+    return RedirectResponse(url=f"/admin/content?error={quote_plus(message)}", status_code=302)
+
+
 def _parse_buttons_json(buttons_json: str) -> tuple[DynamicButton, ...]:
     try:
         raw = json.loads(buttons_json)
@@ -63,14 +79,22 @@ def _parse_buttons_json(buttons_json: str) -> tuple[DynamicButton, ...]:
     for idx, item in enumerate(raw, start=1):
         if not isinstance(item, dict):
             raise ValueError(f"Кнопка #{idx}: должен быть объект")
+
         text = str(item.get("text", "")).strip()
         action = str(item.get("action", "")).strip()
         value = str(item.get("value", "")).strip()
+
         if not text:
             raise ValueError(f"Кнопка #{idx}: пустой text")
         if action not in ALLOWED_ACTIONS:
             raise ValueError(f"Кнопка #{idx}: action должен быть одним из {sorted(ALLOWED_ACTIONS)}")
+        if not value:
+            raise ValueError(f"Кнопка #{idx}: value обязателен")
+
         buttons.append(DynamicButton(text=text, action=action, value=value))
+
+    if not buttons:
+        raise ValueError("У шага должна быть хотя бы одна кнопка")
 
     return tuple(buttons)
 
@@ -83,18 +107,24 @@ def _parse_buttons_from_form(form) -> tuple[DynamicButton, ...]:
     if texts or actions or values:
         max_len = max(len(texts), len(actions), len(values))
         buttons: list[DynamicButton] = []
+
         for i in range(max_len):
             text = texts[i].strip() if i < len(texts) else ""
             action = actions[i].strip() if i < len(actions) else ""
             value = values[i].strip() if i < len(values) else ""
 
-            if not text and not action and not value:
-                continue
             if not text:
                 raise ValueError(f"Кнопка #{i + 1}: пустой text")
             if action not in ALLOWED_ACTIONS:
                 raise ValueError(f"Кнопка #{i + 1}: action должен быть одним из {sorted(ALLOWED_ACTIONS)}")
+            if not value:
+                raise ValueError(f"Кнопка #{i + 1}: value обязателен")
+
             buttons.append(DynamicButton(text=text, action=action, value=value))
+
+        if not buttons:
+            raise ValueError("У шага должна быть хотя бы одна кнопка")
+
         return tuple(buttons)
 
     return _parse_buttons_json(str(form.get("buttons_json", "[]")))
@@ -105,6 +135,7 @@ def _validate_redirect_targets(
     available_step_ids: set[int],
 ) -> tuple[DynamicButton, ...]:
     validated: list[DynamicButton] = []
+
     for idx, btn in enumerate(buttons, start=1):
         if btn.action != "next":
             validated.append(btn)
@@ -116,9 +147,10 @@ def _validate_redirect_targets(
         try:
             target = int(raw)
         except ValueError as exc:
-            raise ValueError(f"Кнопка #{idx}: target должен быть числом шага") from exc
+            raise ValueError(f"Кнопка #{idx}: target должен быть номером шага") from exc
         if target not in available_step_ids:
             raise ValueError(f"Кнопка #{idx}: target шага #{target} не найден")
+
         validated.append(DynamicButton(text=btn.text, action=btn.action, value=str(target)))
 
     return tuple(validated)
@@ -142,6 +174,7 @@ async def content_page(
         *[key for key in PREFERRED_LINK_ORDER if key in links_without_instruction],
         *sorted(key for key in links_without_instruction if key not in PREFERRED_LINK_ORDER),
     ]
+
     link_items = [{"key": key, "value": links_without_instruction.get(key, "")} for key in ordered_keys]
     steps_view = [
         {
@@ -184,7 +217,13 @@ async def update_links(
     keys = form.getlist("link_key")
     values = form.getlist("link_value")
 
-    max_len = max(len(keys), len(values)) if (keys or values) else 0
+    if not instruction_message:
+        return _response_error(request, "instruction_message обязателен")
+
+    if not keys and not values:
+        return _response_error(request, "Добавь хотя бы одну ссылку")
+
+    max_len = max(len(keys), len(values))
     links: dict[str, str] = {}
 
     for idx in range(max_len):
@@ -194,18 +233,12 @@ async def update_links(
         key = _sanitize_link_key(str(raw_key))
         value = str(raw_value).strip()
 
-        if not key and not value:
-            continue
         if not key:
-            return RedirectResponse(
-                url=f"/admin/content?error={quote_plus(f'Ссылка #{idx + 1}: пустой ключ')}",
-                status_code=302,
-            )
+            return _response_error(request, f"Ссылка #{idx + 1}: пустой ключ")
+        if not value:
+            return _response_error(request, f"Ссылка #{idx + 1}: пустое значение")
         if key in links:
-            return RedirectResponse(
-                url=f"/admin/content?error={quote_plus(f'Дублирующийся ключ ссылки: {key}')}",
-                status_code=302,
-            )
+            return _response_error(request, f"Дублирующийся ключ ссылки: {key}")
 
         links[key] = value
 
@@ -213,7 +246,7 @@ async def update_links(
 
     await save_links_config(session, links)
     await session.commit()
-    return RedirectResponse(url="/admin/content?msg=Ссылки+сохранены", status_code=302)
+    return _response_ok(request, "Ссылки сохранены")
 
 
 @router.post("/steps/save")
@@ -223,6 +256,7 @@ async def save_step(
     session: AsyncSession = Depends(db_session),
 ):
     form = await request.form()
+
     try:
         original_step_raw = str(form.get("original_step", "")).strip()
         original_step = int(original_step_raw) if original_step_raw else None
@@ -244,6 +278,9 @@ async def save_step(
             raise ValueError("text не может быть пустым")
 
         photo = str(form.get("photo", "")).strip()
+        if not photo:
+            raise ValueError("photo обязателен")
+
         buttons = _parse_buttons_from_form(form)
 
         steps = await get_funnel_steps(session)
@@ -277,12 +314,9 @@ async def save_step(
         await save_funnel_steps(session, next_steps)
         await session.commit()
     except ValueError as exc:
-        return RedirectResponse(
-            url=f"/admin/content?error={quote_plus(str(exc))}",
-            status_code=302,
-        )
+        return _response_error(request, str(exc))
 
-    return RedirectResponse(url="/admin/content?msg=Шаг+сохранен", status_code=302)
+    return _response_ok(request, "Шаг сохранен")
 
 
 @router.post("/steps/{step_id}/delete")
@@ -296,18 +330,17 @@ async def delete_step(
 
     if target and target.slug in REQUIRED_STEP_SLUGS:
         return RedirectResponse(
-            url="/admin/content?error=Нельзя+удалить+обязательный+шаг",
+            url=f"/admin/content?error={quote_plus('Нельзя удалить обязательный шаг')}",
             status_code=302,
         )
 
     next_steps = [s for s in steps if s.step != step_id]
-
     if not next_steps:
         return RedirectResponse(
-            url="/admin/content?error=Нельзя+удалить+последний+шаг",
+            url=f"/admin/content?error={quote_plus('Нельзя удалить последний шаг')}",
             status_code=302,
         )
 
     await save_funnel_steps(session, next_steps)
     await session.commit()
-    return RedirectResponse(url="/admin/content?msg=Шаг+удален", status_code=302)
+    return RedirectResponse(url=f"/admin/content?msg={quote_plus('Шаг удален')}", status_code=302)

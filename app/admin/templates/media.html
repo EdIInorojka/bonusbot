@@ -17,15 +17,16 @@
 
 <section class="card">
   <h2>Загрузить изображение</h2>
-  <form method="post" action="/admin/media/upload" enctype="multipart/form-data" class="grid form-grid">
+  <form method="post" action="/admin/media/upload" enctype="multipart/form-data" class="grid form-grid" id="upload-form">
     <label>Название
       <input type="text" name="label" placeholder="Например: main menu banner">
     </label>
     <label>Файл
-      <input type="file" name="image" accept="image/*" required>
+      <input type="file" name="image" accept="image/*" required id="upload-image-input">
     </label>
     <button type="submit">Загрузить изображение</button>
   </form>
+  <p class="muted">Файл автоматически отправится после выбора.</p>
 </section>
 
 <section class="card">
@@ -97,6 +98,16 @@
 </section>
 
 <script>
+  const uploadInput = document.getElementById("upload-image-input");
+  const uploadForm = document.getElementById("upload-form");
+  if (uploadInput && uploadForm) {
+    uploadInput.addEventListener("change", () => {
+      if (uploadInput.files && uploadInput.files.length > 0) {
+        uploadForm.submit();
+      }
+    });
+  }
+
   async function copyAsset(id) {
     const el = document.getElementById(id);
     if (!el) return;

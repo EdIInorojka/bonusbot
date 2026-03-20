@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% block title %}Content{% endblock %}
 {% block content %}
 <h1>Конструктор воронки</h1>
@@ -7,9 +7,15 @@
 {% if error %}<div class="notice err">{{ error }}</div>{% endif %}
 
 <section class="card">
+  <h2>Автосохранение</h2>
+  <p class="muted" id="autosave-status">Готово к автосохранению.</p>
+</section>
+
+<section class="card">
   <h2>Ссылки и канал проверки</h2>
-  <form method="post" action="/admin/content/links" class="step-form" id="links-form">
-    <p class="muted">Управляй ключами ссылок: добавляй, удаляй и редактируй. Эти ключи можно использовать в `btn_value` для кнопок `url` и `webapp`.</p>
+  <form method="post" action="/admin/content/links" class="step-form" id="links-form" data-autosave="1">
+    <p class="muted">Любое изменение ниже автоматически сохраняется в БД.</p>
+
     <div class="link-builder">
       <div class="btn-builder-head">
         <strong>Список ссылок</strong>
@@ -19,25 +25,25 @@
         {% for item in link_items %}
         <div class="link-row">
           <input type="text" name="link_key" value="{{ item.key }}" placeholder="key (например, registration)" required>
-          <input type="text" name="link_value" value="{{ item.value }}" placeholder="URL или t.me/...">
+          <input type="text" name="link_value" value="{{ item.value }}" placeholder="URL или t.me/..." required>
           <button type="button" class="danger remove-link-row">x</button>
         </div>
         {% endfor %}
       </div>
     </div>
 
-    <label>Текст инструкции (`instruction_message`, HTML)
-      <textarea name="instruction_message" rows="5">{{ instruction_message }}</textarea>
+    <label>Текст инструкции (`instruction_message`, Telegram HTML)
+      <textarea name="instruction_message" rows="5" required>{{ instruction_message }}</textarea>
     </label>
 
-    <button type="submit">Сохранить ссылки</button>
+    <button type="submit">Сохранить ссылки (резерв)</button>
   </form>
 </section>
 
 <section class="card">
   <h2>Шаги</h2>
   <p class="muted">`text` поддерживает HTML Telegram. Обязательные шаги: `primary_registration`, `main_menu`.</p>
-  <p class="muted"><a href="/admin/media" target="_blank">Открыть медиатеку</a> и выбрать фото прямо в шаге.</p>
+  <p class="muted"><a href="/admin/media" target="_blank">Открыть медиатеку</a> и выбрать фото для шага.</p>
 
   {% for item in steps_view %}
   {% set step = item.step %}
@@ -47,7 +53,7 @@
       {% if item.is_required %}<span class="pill">обязательный</span>{% endif %}
     </header>
 
-    <form method="post" action="/admin/content/steps/save" class="step-form">
+    <form method="post" action="/admin/content/steps/save" class="step-form" data-autosave="1">
       <input type="hidden" name="original_step" value="{{ step.step }}">
 
       <label>Логическое имя шага (title)
@@ -67,7 +73,7 @@
       </label>
 
       <label>Фото (`file_id` или URL)
-        <input type="text" id="photo-{{ step.step }}" name="photo" value="{{ step.photo }}">
+        <input type="text" id="photo-{{ step.step }}" name="photo" value="{{ step.photo }}" required>
       </label>
 
       <label>Выбрать из медиатеки
@@ -98,7 +104,7 @@
               <option value="{{ action }}" {% if btn.action == action %}selected{% endif %}>{{ action }}</option>
               {% endfor %}
             </select>
-            <input type="text" name="btn_value" class="btn-value" value="{{ btn.value }}" placeholder="Value / URL">
+            <input type="text" name="btn_value" class="btn-value" value="{{ btn.value }}" placeholder="Value / URL" required>
             <select class="btn-link-key" data-current="{{ btn.value }}"></select>
             <select class="btn-target" data-current="{{ btn.value }}"></select>
             <button type="button" class="danger remove-btn-row">x</button>
@@ -108,7 +114,7 @@
         <input type="hidden" name="buttons_json" value="{{ item.buttons_json|e }}">
       </div>
 
-      <button type="submit">Сохранить шаг</button>
+      <button type="submit">Сохранить шаг (резерв)</button>
     </form>
 
     <form method="post" action="/admin/content/steps/{{ step.step }}/delete" class="delete-form">
@@ -134,7 +140,7 @@
       <textarea name="text" rows="5" required></textarea>
     </label>
     <label>Фото (`file_id` или URL)
-      <input type="text" id="photo-new" name="photo" value="">
+      <input type="text" id="photo-new" name="photo" value="" required>
     </label>
     <label>Выбрать из медиатеки
       <select class="media-picker" data-target="photo-new" data-preview="preview-new">
@@ -162,12 +168,28 @@
     <button type="submit">Добавить шаг</button>
   </form>
   <p class="muted">Доступные action: {{ allowed_actions|join(', ') }}</p>
-  <p class="muted">Системные callback значения: `check_sub`, `instruction`, `claim_bonus`, `continue`, `back`.</p>
+  <p class="muted">Системные callback: `check_sub`, `instruction`, `claim_bonus`, `continue`, `back`.</p>
 </section>
 
 <script>
   const STEP_TARGETS = {{ step_targets|tojson|safe }};
   let LINK_KEYS = {{ link_keys|tojson|safe }};
+  const AUTO_TIMERS = new WeakMap();
+
+  function setAutosaveStatus(text, type = 'muted') {
+    const el = document.getElementById('autosave-status');
+    if (!el) return;
+
+    el.textContent = text;
+    el.classList.remove('notice', 'ok', 'err', 'muted');
+    if (type === 'ok') {
+      el.classList.add('notice', 'ok');
+    } else if (type === 'err') {
+      el.classList.add('notice', 'err');
+    } else {
+      el.classList.add('muted');
+    }
+  }
 
   function uniq(values) {
     return [...new Set(values)];
@@ -221,12 +243,68 @@
     });
   }
 
+  async function autosaveForm(form) {
+    if (!form || form.dataset.autosave !== '1') return;
+    if (!form.checkValidity()) return;
+    if (form.dataset.saving === '1') return;
+
+    form.dataset.saving = '1';
+    setAutosaveStatus('Сохраняю...', 'muted');
+
+    try {
+      const response = await fetch(form.action, {
+        method: 'POST',
+        body: new FormData(form),
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      });
+
+      let payload = {};
+      try {
+        payload = await response.json();
+      } catch (_) {
+        payload = {};
+      }
+
+      if (!response.ok || payload.ok === false) {
+        throw new Error(payload.message || 'Ошибка сохранения');
+      }
+
+      const now = new Date();
+      const hh = String(now.getHours()).padStart(2, '0');
+      const mm = String(now.getMinutes()).padStart(2, '0');
+      const ss = String(now.getSeconds()).padStart(2, '0');
+      setAutosaveStatus(`Сохранено (${hh}:${mm}:${ss})`, 'ok');
+    } catch (error) {
+      setAutosaveStatus(`Ошибка автосохранения: ${error.message}`, 'err');
+    } finally {
+      form.dataset.saving = '0';
+    }
+  }
+
+  function scheduleAutosave(form, delay = 700) {
+    if (!form || form.dataset.autosave !== '1') return;
+    if (AUTO_TIMERS.has(form)) {
+      clearTimeout(AUTO_TIMERS.get(form));
+    }
+    const timer = setTimeout(() => autosaveForm(form), delay);
+    AUTO_TIMERS.set(form, timer);
+  }
+
+  function bindAutosave(form) {
+    if (!form || form.dataset.autosave !== '1') return;
+
+    const trigger = () => scheduleAutosave(form);
+    form.addEventListener('input', trigger);
+    form.addEventListener('change', trigger);
+  }
+
   function bindButtonRow(row) {
     const action = row.querySelector('.btn-action');
     const valueInput = row.querySelector('.btn-value');
     const linkSelect = row.querySelector('.btn-link-key');
     const targetSelect = row.querySelector('.btn-target');
     const removeBtn = row.querySelector('.remove-btn-row');
+    const form = row.closest('form');
 
     createTargetOptions(targetSelect, targetSelect.dataset.current || valueInput.value || '');
     createLinkOptions(linkSelect, linkSelect.dataset.current || valueInput.value || '');
@@ -236,9 +314,11 @@
       const isLinkAction = action.value === 'url' || action.value === 'webapp';
 
       targetSelect.style.display = isNext ? 'block' : 'none';
+      targetSelect.required = isNext;
       linkSelect.style.display = isLinkAction ? 'block' : 'none';
       valueInput.readOnly = isNext;
       valueInput.placeholder = isNext ? 'Choose target from list' : (isLinkAction ? 'Alias key or direct URL' : 'Value / URL');
+      valueInput.required = true;
 
       if (isNext && targetSelect.value) {
         valueInput.value = targetSelect.value;
@@ -249,15 +329,23 @@
       }
     };
 
-    action.addEventListener('change', sync);
+    action.addEventListener('change', () => {
+      sync();
+      scheduleAutosave(form);
+    });
+
     targetSelect.addEventListener('change', () => {
       valueInput.value = targetSelect.value;
+      scheduleAutosave(form);
     });
+
     linkSelect.addEventListener('change', () => {
       if (linkSelect.value) {
         valueInput.value = linkSelect.value;
       }
+      scheduleAutosave(form);
     });
+
     valueInput.addEventListener('input', () => {
       const isLinkAction = action.value === 'url' || action.value === 'webapp';
       if (isLinkAction) {
@@ -271,6 +359,7 @@
       if (container && container.children.length === 0) {
         container.appendChild(buildEmptyRow());
       }
+      scheduleAutosave(form);
     });
 
     sync();
@@ -286,7 +375,7 @@
         <option value="{{ action }}">{{ action }}</option>
         {% endfor %}
       </select>
-      <input type="text" name="btn_value" class="btn-value" placeholder="Value / URL">
+      <input type="text" name="btn_value" class="btn-value" placeholder="Value / URL" required>
       <select class="btn-link-key"></select>
       <select class="btn-target"></select>
       <button type="button" class="danger remove-btn-row">x</button>
@@ -299,6 +388,7 @@
     document.querySelectorAll('.btn-builder').forEach((builder) => {
       const rows = builder.querySelector('.btn-rows');
       const addBtn = builder.querySelector('.add-btn-row');
+      const form = builder.closest('form');
 
       if (rows.children.length === 0) {
         rows.appendChild(buildEmptyRow());
@@ -308,6 +398,7 @@
 
       addBtn.addEventListener('click', () => {
         rows.appendChild(buildEmptyRow());
+        scheduleAutosave(form);
       });
     });
   }
@@ -317,16 +408,18 @@
     row.className = 'link-row';
     row.innerHTML = `
       <input type="text" name="link_key" value="${key}" placeholder="key (e.g. registration)" required>
-      <input type="text" name="link_value" value="${value}" placeholder="URL or t.me/...">
+      <input type="text" name="link_value" value="${value}" placeholder="URL or t.me/..." required>
       <button type="button" class="danger remove-link-row">x</button>
     `;
 
+    const form = row.closest('form') || document.getElementById('links-form');
     const keyInput = row.querySelector('input[name="link_key"]');
     const removeBtn = row.querySelector('.remove-link-row');
 
     keyInput.addEventListener('input', () => {
       LINK_KEYS = collectLinkKeys();
       refreshButtonLinkKeyOptions();
+      scheduleAutosave(form);
     });
 
     removeBtn.addEventListener('click', () => {
@@ -337,6 +430,7 @@
       }
       LINK_KEYS = collectLinkKeys();
       refreshButtonLinkKeyOptions();
+      scheduleAutosave(form);
     });
 
     return row;
@@ -356,6 +450,7 @@
       keyInput.addEventListener('input', () => {
         LINK_KEYS = collectLinkKeys();
         refreshButtonLinkKeyOptions();
+        scheduleAutosave(form);
       });
 
       removeBtn.addEventListener('click', () => {
@@ -365,6 +460,7 @@
         }
         LINK_KEYS = collectLinkKeys();
         refreshButtonLinkKeyOptions();
+        scheduleAutosave(form);
       });
     });
 
@@ -374,6 +470,7 @@
 
     addBtn.addEventListener('click', () => {
       rows.appendChild(buildLinkRow());
+      scheduleAutosave(form);
     });
 
     LINK_KEYS = collectLinkKeys();
@@ -402,6 +499,7 @@
       const targetId = select.dataset.target;
       const previewId = select.dataset.preview;
       const target = document.getElementById(targetId);
+      const form = select.closest('form');
 
       const refresh = () => {
         const opt = select.options[select.selectedIndex];
@@ -409,6 +507,7 @@
         const preview = opt ? (opt.dataset.preview || '') : '';
         if (target && pickedValue) {
           target.value = pickedValue;
+          scheduleAutosave(form);
         }
         updatePreviewByValue(preview, previewId, target);
       };
@@ -424,9 +523,16 @@
     });
   }
 
+  function initAutosaveForms() {
+    document.querySelectorAll('form[data-autosave="1"]').forEach((form) => {
+      bindAutosave(form);
+    });
+  }
+
   initLinkBuilder();
   initBuilders();
   refreshButtonLinkKeyOptions();
   initMediaPickers();
+  initAutosaveForms();
 </script>
 {% endblock %}
