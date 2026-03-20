@@ -5,6 +5,7 @@ from app.db.models.prize import Prize
 from app.db.models.referral import Referral
 from app.db.models.spin import SpinHistory
 from app.db.models.user import User
+from app.db.models.user_conversion import UserConversion
 
 __all__ = [
     "User",
@@ -14,4 +15,5 @@ __all__ = [
     "AdminSettings",
     "BotChatState",
     "MediaAsset",
+    "UserConversion",
 ]

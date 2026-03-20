@@ -44,6 +44,8 @@ Required:
 Optional for guide-as-message:
 
 - `INSTRUCTION_MESSAGE` (HTML is supported)
+- `POSTBACK_PATH` (default: `/api/postback/event`)
+- `POSTBACK_SECRET` (recommended)
 
 ## 3) Deploy
 
@@ -71,3 +73,22 @@ Invoke-WebRequest -Uri "https://<project>.vercel.app/api/telegram/webhook-info?s
 - Content editor: `https://<project>.vercel.app/admin/content`
 
 You can edit texts, photos, buttons, links, subscription channel, and all funnel steps.
+
+## 6) Registration callback (postback)
+
+Use one of these endpoints from your tracker:
+
+- `https://<project>.vercel.app/api/postback/event`
+- `https://<project>.vercel.app/api/postback/registration` (always marks registration)
+
+Recommended payload fields:
+
+- `source_id` = Telegram user id
+- `event`/`event_name`/`hash_name` = registration event name
+- `secret` = `POSTBACK_SECRET` (if enabled)
+
+Example:
+
+```text
+https://<project>.vercel.app/api/postback/registration?source_id={source_id}&event=registration&secret=<POSTBACK_SECRET>
+```

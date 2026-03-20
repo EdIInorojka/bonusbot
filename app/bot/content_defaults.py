@@ -36,14 +36,14 @@ DEFAULT_FUNNEL_STEPS: list[dict[str, Any]] = [
         "buttons": [
             {"text": "📱 Register", "action": "url", "value": "registration"},
             {"text": "📘 Guide", "action": "callback", "value": "instruction"},
-            {"text": "🎁 Claim Bonus", "action": "next", "value": "3"},
+            {"text": "🎁 Claim Bonus", "action": "callback", "value": "claim_bonus"},
         ],
     },
     {
         "step": 3,
-        "title": "Registration Check",
-        "slug": "registration_check",
-        "text": "Registration is not completed yet.\n\nUse promo code <b>honor17</b> during registration.\n\nAfter registration, you will receive an automatic update in the bot.",
+        "title": "Registration Error",
+        "slug": "registration_error",
+        "text": "Registration callback is not received yet.\n\nPlease register first and return to main menu.",
         "photo": "",
         "buttons": [
             {"text": "🧩 Register Now", "action": "url", "value": "registration"},

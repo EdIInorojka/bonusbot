@@ -17,9 +17,20 @@ from starlette.staticfiles import StaticFiles
 
 from app.admin.routers import auth, content, dashboard, exports, media, prizes, settings, users
 from app.bot.handlers import router as bot_router
+from app.bot.keyboards import step_keyboard
+from app.bot.services.content import get_funnel_steps, get_step_by_slug, step_ids
+from app.bot.services.funnel import render_step_text
+from app.bot.services.registration import (
+    extract_event_name,
+    extract_source_user_id,
+    is_registration_event,
+    mark_user_registered,
+)
+from app.bot.services.single_message import send_single_message
 from app.bot.services.spins import SpinService, serialize_spin_result
 from app.core.config import build_telegram_webhook_url, get_settings
 from app.core.security import verify_telegram_init_data
+from app.db.models.bot_chat_state import BotChatState
 from app.db.models.prize import Prize
 from app.db.models.user import User
 from app.db.seed import seed as seed_defaults
@@ -30,6 +41,7 @@ settings_obj = get_settings()
 ADMIN_STATIC_DIR = Path(__file__).resolve().parent / "static"
 WEBAPP_STATIC_DIR = Path(__file__).resolve().parents[1] / "webapp" / "static"
 WEBAPP_TEMPLATES = Jinja2Templates(directory=str(Path(__file__).resolve().parents[1] / "webapp" / "templates"))
+POSTBACK_BONUS_STEP_SLUGS = ("bonus_claim", "bonus", "claim_bonus", "first_deposit")
 
 
 
@@ -38,6 +50,59 @@ def _normalized_webhook_path() -> str:
     if not path.startswith("/"):
         path = "/" + path
     return path
+
+
+def _normalized_postback_path() -> str:
+    path = (settings_obj.postback_path or "/api/postback/event").strip()
+    if not path.startswith("/"):
+        path = "/" + path
+    return path
+
+
+async def _extract_postback_payload(request: Request) -> dict[str, str]:
+    payload: dict[str, str] = {str(k): str(v) for k, v in request.query_params.multi_items()}
+
+    if request.method.upper() != "POST":
+        return payload
+
+    content_type = (request.headers.get("content-type") or "").lower()
+    try:
+        if "application/json" in content_type:
+            raw_json = await request.json()
+            if isinstance(raw_json, dict):
+                payload.update({str(k): str(v) for k, v in raw_json.items()})
+            return payload
+
+        form = await request.form()
+        payload.update({str(k): str(v) for k, v in form.multi_items()})
+        return payload
+    except Exception:
+        return payload
+
+
+def _validate_postback_secret(request: Request, payload: dict[str, str]) -> None:
+    expected = (settings_obj.postback_secret or "").strip()
+    if not expected:
+        return
+
+    provided = (
+        request.headers.get("x-postback-secret", "").strip()
+        or request.query_params.get("secret", "").strip()
+        or request.query_params.get("token", "").strip()
+        or str(payload.get("secret", "")).strip()
+        or str(payload.get("token", "")).strip()
+    )
+    if provided != expected:
+        raise HTTPException(status_code=403, detail="Invalid postback secret")
+
+
+def _resolve_postback_bonus_step(steps):
+    for slug in POSTBACK_BONUS_STEP_SLUGS:
+        step = get_step_by_slug(steps, slug)
+        if step:
+            return step
+
+    return get_step_by_slug(steps, "main_menu") or steps[0]
 
 
 
@@ -132,6 +197,76 @@ def create_app() -> FastAPI:
     @app.get("/api/health")
     async def health() -> dict[str, str]:
         return {"status": "ok"}
+
+    async def _handle_postback(request: Request, force_registration: bool = False):
+        payload = await _extract_postback_payload(request)
+        _validate_postback_secret(request, payload)
+
+        event_name = extract_event_name(payload)
+        source_user_id = extract_source_user_id(payload)
+        if source_user_id is None:
+            raise HTTPException(status_code=400, detail="source_id/user_id is required")
+
+        registration_event = force_registration or is_registration_event(event_name)
+
+        sent_to_user = False
+        target_step_id: int | None = None
+        async with AsyncSessionLocal() as session:
+            user = await session.get(User, source_user_id)
+            if not user:
+                source_name = str(payload.get("source_name", "")).strip() or "User"
+                user = User(
+                    id=source_user_id,
+                    first_name=source_name[:128],
+                    last_name=None,
+                    username=None,
+                    language_code=None,
+                    ref_code=f"REF{source_user_id}",
+                    funnel_step=2,
+                )
+                session.add(user)
+                await session.flush()
+
+            if registration_event:
+                await mark_user_registered(session, user.id, event_name or "registration", payload)
+                steps = await get_funnel_steps(session)
+                target_step = _resolve_postback_bonus_step(steps)
+                user.funnel_step = max(user.funnel_step, target_step.step)
+                target_step_id = target_step.step
+
+                chat_state = await session.get(BotChatState, user.id)
+                bot: Bot | None = app.state.bot
+                if chat_state and bot:
+                    text = render_step_text(user, target_step, steps)
+                    keyboard = await step_keyboard(session, user, target_step, step_ids(steps))
+                    await send_single_message(
+                        bot=bot,
+                        user_id=user.id,
+                        chat_id=chat_state.chat_id,
+                        text=text,
+                        reply_markup=keyboard,
+                        photo=target_step.photo,
+                    )
+                    sent_to_user = True
+
+            await session.commit()
+
+        return {
+            "ok": True,
+            "registration_event": registration_event,
+            "source_user_id": source_user_id,
+            "event_name": event_name,
+            "target_step": target_step_id,
+            "sent_to_user": sent_to_user,
+        }
+
+    @app.api_route(_normalized_postback_path(), methods=["GET", "POST"])
+    async def postback_event(request: Request):
+        return await _handle_postback(request, force_registration=False)
+
+    @app.api_route("/api/postback/registration", methods=["GET", "POST"])
+    async def postback_registration(request: Request):
+        return await _handle_postback(request, force_registration=True)
 
     @app.post(_normalized_webhook_path())
     async def telegram_webhook(request: Request):

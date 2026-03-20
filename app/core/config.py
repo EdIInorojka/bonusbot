@@ -32,6 +32,8 @@ class Settings(BaseSettings):
     telegram_webhook_path: str = Field(default="/api/telegram/webhook", alias="TELEGRAM_WEBHOOK_PATH")
     telegram_webhook_secret: str = Field(default="", alias="TELEGRAM_WEBHOOK_SECRET")
     webhook_setup_token: str = Field(default="", alias="WEBHOOK_SETUP_TOKEN")
+    postback_path: str = Field(default="/api/postback/event", alias="POSTBACK_PATH")
+    postback_secret: str = Field(default="", alias="POSTBACK_SECRET")
 
     admin_username: str = Field(default="admin", alias="ADMIN_USERNAME")
     admin_password: str = Field(default="admin", alias="ADMIN_PASSWORD")

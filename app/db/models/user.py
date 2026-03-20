@@ -9,6 +9,7 @@ from app.db.base import Base, TimestampMixin
 if TYPE_CHECKING:
     from app.db.models.referral import Referral
     from app.db.models.spin import SpinHistory
+    from app.db.models.user_conversion import UserConversion
 
 
 class UserRole(str, enum.Enum):
@@ -53,5 +54,11 @@ class User(Base, TimestampMixin):
     spins: Mapped[list["SpinHistory"]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+
+    conversion: Mapped["UserConversion | None"] = relationship(
+        "UserConversion",
+        uselist=False,
         lazy="selectin",
     )
