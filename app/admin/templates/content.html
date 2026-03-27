@@ -16,6 +16,7 @@
   <form method="post" action="/admin/content/links" class="step-form" id="links-form" data-autosave="1">
     <p class="muted">Любое изменение ниже автоматически сохраняется в БД.</p>
     <p class="muted">Для `registration` можно вставлять обычную ссылку без `{source_id}` — бот сам добавит tracking-параметры (`sub1/source_id`) и промокод.</p>
+    <p class="muted">Для нового приложения Mines используй link key `mines_webapp` в кнопке с action=`webapp`.</p>
 
     <div class="link-builder">
       <div class="btn-builder-head">
@@ -543,3 +544,4 @@
   initAutosaveForms();
 </script>
 {% endblock %}
+

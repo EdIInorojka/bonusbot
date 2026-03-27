@@ -59,6 +59,7 @@ def _default_links_from_settings() -> dict[str, str]:
             "bonus": settings.bonus_claim_url,
             "signal": settings.signal_url,
             "webapp": build_webapp_url(),
+            "mines_webapp": build_webapp_url("/mines"),
         }
     )
     return default_links
@@ -233,6 +234,8 @@ async def get_links_config(session: AsyncSession) -> dict[str, str]:
 
     if not links.get("webapp"):
         links["webapp"] = build_webapp_url()
+    if not links.get("mines_webapp"):
+        links["mines_webapp"] = build_webapp_url("/mines")
 
     return links
 
@@ -247,6 +250,8 @@ async def save_links_config(session: AsyncSession, links: dict[str, str]) -> Non
 
     if "webapp" not in normalized or not normalized.get("webapp"):
         normalized["webapp"] = build_webapp_url()
+    if "mines_webapp" not in normalized or not normalized.get("mines_webapp"):
+        normalized["mines_webapp"] = build_webapp_url("/mines")
 
     await _set_json_setting(session, LINKS_SETTING_KEY, normalized)
 

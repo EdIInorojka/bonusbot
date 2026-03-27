@@ -48,9 +48,11 @@ DEFAULT_PRIZES = [
     },
 ]
 
+MIGRATION_KEY = "migration_mines_webapp_v1"
+MINES_BUTTON = {"text": "Mines Predictions", "action": "webapp", "value": "mines_webapp"}
 
-async def seed() -> None:
-    settings = get_settings()
+
+def _default_links(settings) -> dict[str, str]:
     default_links = dict(DEFAULT_LINKS)
     default_links.update(
         {
@@ -62,8 +64,52 @@ async def seed() -> None:
             "bonus": settings.bonus_claim_url,
             "signal": settings.signal_url,
             "webapp": build_webapp_url(),
+            "mines_webapp": build_webapp_url("/mines"),
         }
     )
+    return default_links
+
+
+def _ensure_mines_button(steps: list[dict]) -> list[dict]:
+    target = None
+    for step in steps:
+        if not isinstance(step, dict):
+            continue
+        if str(step.get("slug", "")).strip() == "bonus_claim":
+            target = step
+            break
+    if target is None:
+        return steps
+
+    buttons = target.get("buttons")
+    if not isinstance(buttons, list):
+        buttons = []
+        target["buttons"] = buttons
+
+    already_exists = any(
+        isinstance(btn, dict)
+        and str(btn.get("action", "")).strip() == "webapp"
+        and str(btn.get("value", "")).strip() == "mines_webapp"
+        for btn in buttons
+    )
+    if already_exists:
+        return steps
+
+    insert_at = next(
+        (
+            idx
+            for idx, btn in enumerate(buttons)
+            if isinstance(btn, dict) and str(btn.get("action", "")).strip() == "next"
+        ),
+        len(buttons),
+    )
+    buttons.insert(insert_at, dict(MINES_BUTTON))
+    return steps
+
+
+async def seed() -> None:
+    settings = get_settings()
+    default_links = _default_links(settings)
 
     async with AsyncSessionLocal() as session:
         exists = (await session.execute(select(Prize.id).limit(1))).first()
@@ -81,6 +127,32 @@ async def seed() -> None:
             row = await session.get(AdminSettings, key)
             if not row:
                 session.add(AdminSettings(key=key, value=value))
+
+        migration_row = await session.get(AdminSettings, MIGRATION_KEY)
+        if not migration_row:
+            links_row = await session.get(AdminSettings, "links_json")
+            if links_row:
+                try:
+                    links_payload = json.loads(links_row.value)
+                except Exception:
+                    links_payload = {}
+                if not isinstance(links_payload, dict):
+                    links_payload = {}
+                if not str(links_payload.get("mines_webapp", "")).strip():
+                    links_payload["mines_webapp"] = build_webapp_url("/mines")
+                    links_row.value = json.dumps(links_payload, ensure_ascii=False)
+
+            steps_row = await session.get(AdminSettings, "funnel_steps_json")
+            if steps_row:
+                try:
+                    steps_payload = json.loads(steps_row.value)
+                except Exception:
+                    steps_payload = []
+                if isinstance(steps_payload, list):
+                    _ensure_mines_button(steps_payload)
+                    steps_row.value = json.dumps(steps_payload, ensure_ascii=False)
+
+            session.add(AdminSettings(key=MIGRATION_KEY, value="1"))
 
         await session.commit()
 

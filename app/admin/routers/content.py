@@ -31,6 +31,7 @@ PREFERRED_LINK_ORDER = [
     "bonus",
     "signal",
     "webapp",
+    "mines_webapp",
 ]
 
 
@@ -344,3 +345,4 @@ async def delete_step(
     await save_funnel_steps(session, next_steps)
     await session.commit()
     return RedirectResponse(url=f"/admin/content?msg={quote_plus('Шаг удален')}", status_code=302)
+

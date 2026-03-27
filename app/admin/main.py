@@ -34,7 +34,7 @@ from app.bot.services.registration import (
 )
 from app.bot.services.single_message import send_single_message
 from app.bot.services.spins import SpinService, serialize_spin_result
-from app.core.config import build_telegram_webhook_url, get_settings
+from app.core.config import build_telegram_webhook_url, build_webapp_url, get_settings
 from app.core.security import verify_telegram_init_data
 from app.db.models.bot_chat_state import BotChatState
 from app.db.models.prize import Prize
@@ -297,7 +297,8 @@ def create_app() -> FastAPI:
                 "instruction_message": settings_obj.instruction_message,
                 "bonus": settings_obj.bonus_claim_url,
                 "signal": settings_obj.signal_url,
-                "webapp": f"{settings_obj.web_base_url.rstrip('/')}{settings_obj.webapp_path}",
+                "webapp": build_webapp_url(),
+                "mines_webapp": build_webapp_url("/mines"),
             }
         )
 
@@ -467,6 +468,17 @@ def create_app() -> FastAPI:
         return WEBAPP_TEMPLATES.TemplateResponse(
             request,
             "index.html",
+            {
+                "request": request,
+                "bot_username": settings_obj.bot_username,
+            },
+        )
+
+    @app.get("/webapp/mines")
+    async def mines_webapp_page(request: Request):
+        return WEBAPP_TEMPLATES.TemplateResponse(
+            request,
+            "mines.html",
             {
                 "request": request,
                 "bot_username": settings_obj.bot_username,

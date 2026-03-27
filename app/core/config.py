@@ -90,9 +90,15 @@ def get_settings() -> Settings:
     return Settings()
 
 
-def build_webapp_url() -> str:
+def build_webapp_url(path_suffix: str | None = None) -> str:
     settings = get_settings()
-    return f"{settings.web_base_url.rstrip('/')}{settings.webapp_path}"
+    base_url = f"{settings.web_base_url.rstrip('/')}{settings.webapp_path}"
+    suffix = (path_suffix or "").strip()
+    if not suffix:
+        return base_url
+    if not suffix.startswith("/"):
+        suffix = "/" + suffix
+    return f"{base_url.rstrip('/')}{suffix}"
 
 
 def build_telegram_webhook_url() -> str:

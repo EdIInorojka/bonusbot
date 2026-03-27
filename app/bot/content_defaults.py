@@ -27,6 +27,7 @@ DEFAULT_LINKS: dict[str, str] = {
     "bonus": "https://example.com/bonus",
     "signal": "https://example.com/signal",
     "webapp": "",
+    "mines_webapp": "",
 }
 
 
@@ -63,6 +64,7 @@ DEFAULT_FUNNEL_STEPS: list[dict[str, Any]] = [
         "buttons": [
             {"text": "🎁 Получить бонус", "action": "url", "value": "bonus"},
             {"text": "🎰 Запустить слот", "action": "webapp", "value": "webapp"},
+            {"text": "Mines Predictions", "action": "webapp", "value": "mines_webapp"},
             {"text": "⬅️ Главное меню", "action": "next", "value": "2"},
         ],
     },

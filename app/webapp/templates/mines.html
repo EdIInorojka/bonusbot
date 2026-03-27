@@ -1,0 +1,87 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Mines Predictions</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Manrope:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/webapp/static/mines.css">
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <div class="ambient ambient-left"></div>
+    <div class="ambient ambient-right"></div>
+
+    <section class="hero-card">
+      <p class="eyebrow">Prediction tool</p>
+      <h1 class="logo">MINES</h1>
+      <p class="subtitle">Generate a fresh random layout for any grid size in one tap.</p>
+
+      <div class="multiplier-strip" id="multiplierStrip" aria-label="sample multipliers"></div>
+    </section>
+
+    <section class="control-grid">
+      <article class="control-card">
+        <div class="control-head">
+          <span class="control-label">Board size</span>
+          <span class="value-badge" id="boardSizeBadge">5x5</span>
+        </div>
+        <div class="choice-row" id="boardSizeOptions">
+          <button type="button" class="choice-btn" data-size="3">3x3</button>
+          <button type="button" class="choice-btn active" data-size="5">5x5</button>
+          <button type="button" class="choice-btn" data-size="7">7x7</button>
+          <button type="button" class="choice-btn" data-size="9">9x9</button>
+        </div>
+      </article>
+
+      <article class="control-card">
+        <div class="control-head">
+          <span class="control-label">Mines count</span>
+          <span class="value-badge" id="mineLimitBadge">max 24</span>
+        </div>
+        <div class="mine-config">
+          <div>
+            <div class="choice-row" id="minePresetOptions">
+              <button type="button" class="choice-btn" data-mine="1">1</button>
+              <button type="button" class="choice-btn active" data-mine="3">3</button>
+              <button type="button" class="choice-btn" data-mine="5">5</button>
+              <button type="button" class="choice-btn" data-mine="7">7</button>
+            </div>
+            <p class="helper-text">You can also enter any custom value from <b>1</b> to <b>cells - 1</b>.</p>
+          </div>
+          <label class="input-card">
+            <span>Custom</span>
+            <input id="mineCountInput" type="number" min="1" step="1" value="3" inputmode="numeric">
+          </label>
+        </div>
+      </article>
+    </section>
+
+    <section class="action-row">
+      <button type="button" class="primary-btn" id="revealBtn">Show prediction</button>
+      <button type="button" class="ghost-btn" id="resetBtn">Clear board</button>
+    </section>
+
+    <section class="board-card">
+      <div class="board-topline">
+        <div>
+          <p class="board-caption">Random layout</p>
+          <p class="status-text" id="statusText">Closed board ready. Choose the size and mines, then reveal the pattern.</p>
+        </div>
+        <div class="meta-pills">
+          <span class="meta-pill" id="safeCellsPill">Safe 22</span>
+          <span class="meta-pill danger" id="mineCellsPill">Mines 3</span>
+        </div>
+      </div>
+
+      <div class="board" id="board" aria-live="polite"></div>
+    </section>
+  </div>
+
+  <script src="/webapp/static/mines.js"></script>
+</body>
+</html>
+

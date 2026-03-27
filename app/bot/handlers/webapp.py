@@ -29,11 +29,34 @@ async def on_web_app_data(message: Message, state: FSMContext) -> None:
             bot=message.bot,
             user_id=message.from_user.id,
             chat_id=message.chat.id,
-            text="Failed to process spin result.",
+            text="Failed to process web app result.",
+        )
+        return
+
+    payload_type = str(payload.get("type", "slot_spin")).strip().lower()
+    if payload_type == "mines_prediction":
+        board_size = int(payload.get("board_size") or 0)
+        mine_count = int(payload.get("mine_count") or 0)
+        safe_cells = int(payload.get("safe_cells") or 0)
+        summary = (
+            "<b>Mines prediction ready</b>\n"
+            f"Board: {board_size}x{board_size}\n"
+            f"Mines: {mine_count}\n"
+            f"Safe cells: {safe_cells}"
+        )
+        await send_single_message(
+            bot=message.bot,
+            user_id=message.from_user.id,
+            chat_id=message.chat.id,
+            text=summary,
         )
         return
 
     spin_id = payload.get("spin_id")
+    has_slot_fields = any(key in payload for key in ("won", "prize", "reward_value", "spin_no"))
+    if not spin_id and not has_slot_fields:
+        return
+
     won = bool(payload.get("won"))
     prize_name = payload.get("prize", "Bonus")
     reward_value = payload.get("reward_value", 0)
